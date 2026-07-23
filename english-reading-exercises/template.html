@@ -1426,7 +1426,6 @@ function renderRecitation() {
       '<div class="recite-text" id="rt-' + i + '">' + esc(p.text) + '</div>' +
       '<div class="recite-actions">' +
         '<button class="recite-btn recite-speak" data-idx="' + i + '">\u25b6 \u64ad\u653e</button>' +
-        '<button class="recite-btn recite-audio" data-idx="' + i + '">\u2b07 \u97f3\u9891</button>' +
         '<button class="recite-btn recite-toggle" data-idx="' + i + '">\u9690\u85cf\u539f\u6587</button>' +
         '<button class="recite-btn recite-export" data-idx="' + i + '">\u2b07 \u6587\u672c</button>' +
         (isCustom ? '<button class="recite-btn recite-delete" data-idx="' + i + '" style="color:#e03131;border-color:#fcc">\u2715 \u5220\u9664</button>' : '') +
@@ -1439,7 +1438,6 @@ function renderRecitation() {
   if (synth && synth.speaking) { synth.cancel(); currentUtterance = null; }
   bindCustomAdd();
   bindSpeak();
-  bindAudio();
   bindToggle();
   bindExport();
   bindDelete();
@@ -1503,83 +1501,6 @@ function bindSpeak() {
       this.classList.add('speaking');
       status.textContent = '\u64ad\u653e\u4e2d...';
       synth.speak(utterance);
-    });
-  });
-}
-
-function bindAudio() {
-  $exerciseContent.querySelectorAll('.recite-audio').forEach(function(b) {
-    b.addEventListener('click', async function() {
-      var idx = parseInt(this.dataset.idx);
-      var text = document.getElementById('rt-' + idx).textContent;
-      var status = document.getElementById('rs-' + idx);
-      var btn = this;
-
-      if (!synth) { status.textContent = '\u26a0 \u6d4f\u89c8\u5668\u4e0d\u652f\u6301\u8bed\u97f3\u5408\u6210'; return; }
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-        status.textContent = '\u26a0 \u6d4f\u89c8\u5668\u4e0d\u652f\u6301\u97f3\u9891\u5bfc\u51fa\uff0c\u8bf7\u4f7f\u7528 Chrome';
-        return;
-      }
-
-      try {
-        status.textContent = '\u8bf7\u5728\u5f39\u7a97\u4e2d\u9009\u62e9\u201c\u6b64\u6807\u7b7e\u9875\u201d\u5e76\u52fe\u9009\u201c\u5206\u4eab\u6807\u7b7e\u9875\u97f3\u9891\u201d';
-        var stream = await navigator.mediaDevices.getDisplayMedia({
-          audio: true,
-          video: { width: 1, height: 1 }
-        });
-
-        var audioTracks = stream.getAudioTracks();
-        if (!audioTracks.length) {
-          status.textContent = '\u2717 \u672a\u6355\u83b7\u5230\u97f3\u9891\uff0c\u8bf7\u52fe\u9009\u201c\u5206\u4eab\u6807\u7b7e\u9875\u97f3\u9891\u201d';
-          stream.getTracks().forEach(function(t) { t.stop(); });
-          return;
-        }
-
-        var audioStream = new MediaStream(audioTracks);
-        var recorder = new MediaRecorder(audioStream);
-        var chunks = [];
-
-        recorder.ondataavailable = function(e) { if (e.data.size > 0) chunks.push(e.data); };
-        recorder.onstop = function() {
-          var blob = new Blob(chunks, { type: 'audio/webm' });
-          var a = document.createElement('a');
-          a.href = URL.createObjectURL(blob);
-          a.download = ARTICLE_DATA.id + '-recitation-' + (idx+1) + '.webm';
-          a.click();
-          URL.revokeObjectURL(a.href);
-          status.textContent = '\u2713 \u97f3\u9891\u5df2\u4e0b\u8f7d';
-          btn.textContent = '\u2b07 \u97f3\u9891';
-          btn.disabled = false;
-          stream.getTracks().forEach(function(t) { t.stop(); });
-        };
-
-        recorder.start();
-        btn.textContent = '\u23f8 \u5f55\u5236\u4e2d...';
-        btn.disabled = true;
-        status.textContent = '\u5f55\u5236\u4e2d\uff0c\u8bf7\u7b49\u5f85\u64ad\u653e\u5b8c\u6210...';
-
-        var utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'en-US';
-        utterance.rate = 0.9;
-
-        utterance.onend = function() {
-          setTimeout(function() {
-            if (recorder && recorder.state !== 'inactive') recorder.stop();
-          }, 500);
-        };
-        utterance.onerror = function() {
-          if (recorder && recorder.state !== 'inactive') recorder.stop();
-          status.textContent = '\u26a0 \u64ad\u653e\u5931\u8d25';
-          btn.textContent = '\u2b07 \u97f3\u9891';
-          btn.disabled = false;
-        };
-
-        synth.speak(utterance);
-      } catch(e) {
-        status.textContent = '\u2717 \u5bfc\u51fa\u53d6\u6d88\uff1a' + (e.message || '');
-        btn.textContent = '\u2b07 \u97f3\u9891';
-        btn.disabled = false;
-      }
     });
   });
 }
