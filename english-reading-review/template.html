@@ -44,6 +44,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .flashcard-word{font-size:28px;font-weight:700;color:#1a1a2e;font-family:Georgia,serif;text-align:center}
 .flashcard-meaning{font-size:20px;color:#4263eb;margin-top:12px;text-align:center}
 .flashcard-example{font-size:14px;color:#8b95a5;margin-top:16px;font-style:italic;text-align:center;line-height:1.5;font-family:Georgia,serif}
+.flashcard-example .ctx-highlight{background:#fde68a;color:#92400e;padding:1px 3px;border-radius:3px;font-weight:600;font-style:normal}
 .flashcard-source{font-size:11px;color:#bbb;margin-top:12px}
 .flashcard-hint{font-size:12px;color:#bbb;margin-top:8px}
 .flashcard-actions{display:flex;gap:12px}
@@ -119,6 +120,12 @@ let currentTab = 'dashboard';
 
 // === MERGE WORDBANK FROM LOCALSTORAGE ===
 function mergeWordBank() {
+  // Build a lookup map from the pre-built review data (has correct examples from article text)
+  var buildExamples = {};
+  REVIEW_DATA.masterVocab.forEach(function(v) {
+    buildExamples[v.word.toLowerCase().trim()] = v.example || '';
+  });
+
   var wbMap = {};
   REVIEW_DATA.articles.forEach(function(a) {
     try {
@@ -134,17 +141,30 @@ function mergeWordBank() {
         var lower = w.text.toLowerCase().trim();
         if (!lower) return;
         if (!wbMap[lower]) {
-          wbMap[lower] = { word: w.text, meaning: w.translation, articles: [], count: 0, example: w.context || '' };
+          wbMap[lower] = { word: w.text, meaning: w.translation, articles: [], count: 0, example: '' };
         }
         if (wbMap[lower].articles.indexOf(a.id) === -1) {
           wbMap[lower].articles.push(a.id);
           wbMap[lower].count++;
         }
-        if (w.context && !wbMap[lower].example) {
-          wbMap[lower].example = w.context;
+        // Use context only if it actually contains the target word
+        if (w.context && w.context.toLowerCase().indexOf(lower) !== -1) {
+          if (!wbMap[lower].example) {
+            wbMap[lower].example = w.context;
+          }
         }
       });
     } catch(e) {}
+  });
+
+  // For words without a valid example, fall back to build data's example
+  Object.values(wbMap).forEach(function(v) {
+    if (!v.example) {
+      var lower = v.word.toLowerCase().trim();
+      if (buildExamples[lower]) {
+        v.example = buildExamples[lower];
+      }
+    }
   });
 
   var wbWords = Object.values(wbMap);
@@ -271,6 +291,13 @@ function showFlashcard() {
   });
 }
 
+function highlightInExample(example, word) {
+  if (!example || !word) return esc(example);
+  var escaped = esc(example);
+  var pattern = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return escaped.replace(new RegExp('\\b(' + pattern + ')', 'gi'), '<span class="ctx-highlight">$1</span>');
+}
+
 function flipCard() {
   if (cardFlipped) return;
   cardFlipped = true;
@@ -280,7 +307,7 @@ function flipCard() {
   el.innerHTML =
     '<div class="flashcard-word">' + esc(card.word) + '</div>' +
     '<div class="flashcard-meaning">' + esc(card.meaning) + '</div>' +
-    (card.example ? '<div class="flashcard-example">' + esc(card.example) + '</div>' : '') +
+    (card.example ? '<div class="flashcard-example">' + highlightInExample(card.example, card.word) + '</div>' : '') +
     '<div class="flashcard-source">出现在：' + card.articles.map(a => esc(getArticleTitle(a))).join('、') + '</div>';
   document.getElementById('fc-actions').style.visibility = 'visible';
 }

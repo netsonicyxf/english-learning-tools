@@ -39,18 +39,34 @@ def strip_html(html_text):
 def find_example_sentence(word, article_content):
     """Find a sentence from the article containing this word."""
     plain = strip_html(article_content)
-    sentences = re.findall(r'[^.!?]+[.!?]+', plain)
+    # Protect abbreviations and decimals before splitting
+    plain_protected = re.sub(r'([A-Z])\.', lambda m: m.group(1) + '\x00', plain)
+    plain_protected = re.sub(r'(\d)\.(\d)', lambda m: m.group(1) + '\x01' + m.group(2), plain_protected)
+    sentences = re.findall(r'[^.!?]+[.!?]+', plain_protected)
+    sentences = [s.replace('\x00', '.').replace('\x01', '.') for s in sentences]
     lower = word.lower()
+    # Exact word-boundary match first
     for s in sentences:
-        if lower in s.lower():
+        if re.search(r'\b' + re.escape(lower) + r'\b', s, re.IGNORECASE):
             s = s.strip()
             if len(s) > 120:
-                # Trim around the word
                 idx = s.lower().index(lower)
                 start = max(0, idx - 50)
                 end = min(len(s), idx + len(word) + 60)
                 s = ("..." if start > 0 else "") + s[start:end] + ("..." if end < len(s) else "")
             return s
+    # Stem fallback (e.g. "divest" -> "divesting")
+    stem = re.sub(r'(ing|ed|er|ers|es|s)$', '', lower)
+    if len(stem) >= 4:
+        for s in sentences:
+            if stem in s.lower():
+                s = s.strip()
+                if len(s) > 120:
+                    idx = s.lower().index(stem)
+                    start = max(0, idx - 50)
+                    end = min(len(s), idx + len(word) + 60)
+                    s = ("..." if start > 0 else "") + s[start:end] + ("..." if end < len(s) else "")
+                return s
     return ""
 
 
@@ -110,12 +126,16 @@ def build_review(directory=DEFAULT_DIR, output=None):
 
         # Extract example sentences (one per article to keep it fast)
         plain = strip_html(content)
-        sentences = re.findall(r'[^.!?]+[.!?]+', plain)
+        plain_prot = re.sub(r'([A-Z])\.', lambda m: m.group(1) + '\x00', plain)
+        plain_prot = re.sub(r'(\d)\.(\d)', lambda m: m.group(1) + '\x01' + m.group(2), plain_prot)
+        sentences = re.findall(r'[^.!?]+[.!?]+', plain_prot)
+        sentences = [s.replace('\x00', '.').replace('\x01', '.') for s in sentences]
         for w, entry in master_vocab.items():
             if art_id in entry["articles"] and not entry["example"]:
                 wl = w.lower()
+                found = False
                 for s in sentences:
-                    if wl in s.lower():
+                    if re.search(r'\b' + re.escape(wl) + r'\b', s, re.IGNORECASE):
                         s = s.strip()
                         if len(s) > 120:
                             idx = s.lower().index(wl)
@@ -123,7 +143,22 @@ def build_review(directory=DEFAULT_DIR, output=None):
                             end = min(len(s), idx + len(w) + 50)
                             s = ("..." if start > 0 else "") + s[start:end] + ("..." if end < len(s) else "")
                         entry["example"] = s
+                        found = True
                         break
+                if not found:
+                    # Stem fallback
+                    stem = re.sub(r'(ing|ed|er|ers|es|s)$', '', wl)
+                    if len(stem) >= 4:
+                        for s in sentences:
+                            if stem in s.lower():
+                                s = s.strip()
+                                if len(s) > 120:
+                                    idx = s.lower().index(stem)
+                                    start = max(0, idx - 40)
+                                    end = min(len(s), idx + len(wl) + 50)
+                                    s = ("..." if start > 0 else "") + s[start:end] + ("..." if end < len(s) else "")
+                                entry["example"] = s
+                                break
 
         # Collect patterns
         for p in patterns:

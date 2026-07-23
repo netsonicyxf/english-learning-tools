@@ -369,8 +369,34 @@ function getSelectionContext(sel) {
   try {
     const range = sel.getRangeAt(0);
     const container = range.commonAncestorContainer;
-    if (container.nodeType === 3) return container.parentElement.textContent.trim().substring(0, 200);
-    return range.toString().trim().substring(0, 200);
+    var fullText = container.nodeType === 3
+      ? container.parentElement.textContent
+      : (container.textContent || range.toString());
+    var selectedText = sel.toString().trim();
+    if (!selectedText || !fullText) return selectedText.substring(0, 300);
+
+    // Find the sentence containing the selected text
+    var pos = fullText.toLowerCase().indexOf(selectedText.toLowerCase());
+    if (pos === -1) return selectedText.substring(0, 300);
+
+    // Walk backwards to find sentence start
+    var start = pos;
+    for (var i = pos - 1; i >= 0; i--) {
+      if (fullText[i] === '.' || fullText[i] === '!' || fullText[i] === '?') {
+        start = i + 1;
+        break;
+      }
+      start = i;
+    }
+    // Walk forwards to find sentence end
+    var end = pos + selectedText.length;
+    for (var j = end; j < fullText.length; j++) {
+      if (fullText[j] === '.' || fullText[j] === '!' || fullText[j] === '?') {
+        end = j + 1;
+        break;
+      }
+    }
+    return fullText.substring(start, end).trim().substring(0, 300);
   } catch { return ''; }
 }
 
@@ -513,9 +539,26 @@ function renderWordExercise() {
   // Find a sentence from the article containing this word
   function findContext(word) {
     var lower = word.toLowerCase();
-    var sentences = articleText.match(/[^.!?]+[.!?]+/g) || [];
+    // Split into sentences, but skip periods that are part of abbreviations or decimals
+    // e.g. "U.S.", "Mr.", "$9bn.", "1.5" should not break sentences
+    var sentences = articleText
+      .replace(/([A-Z])\./g, '$1\x00')   // protect "U." type abbreviations
+      .replace(/(\d)\.(\d)/g, '$1\x01$2') // protect decimals like "1.5"
+      .match(/[^.!?]+[.!?]+/g) || [];
     for (var i = 0; i < sentences.length; i++) {
-      if (sentences[i].toLowerCase().indexOf(lower) !== -1) return sentences[i].trim();
+      var s = sentences[i].replace(/\x00/g, '.').replace(/\x01/g, '.');
+      // Try exact word match first
+      if (new RegExp('\\b' + lower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i').test(s)) {
+        return s.trim();
+      }
+    }
+    // Fallback: try stem matching (e.g. "divest" matches "divesting", "divested")
+    var stem = lower.replace(/(ing|ed|er|ers|es|s)$/, '');
+    if (stem.length >= 4) {
+      for (var j = 0; j < sentences.length; j++) {
+        var s2 = sentences[j].replace(/\x00/g, '.').replace(/\x01/g, '.');
+        if (s2.toLowerCase().indexOf(stem) !== -1) return s2.trim();
+      }
     }
     return '';
   }
