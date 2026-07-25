@@ -614,7 +614,16 @@ function renderWordExercise() {
     if (!context) return '';
     var escapedCtx = esc(context);
     var pattern = esc(word).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return escapedCtx.replace(new RegExp('\\b' + pattern + '\\b', 'gi'), '<span class="word-blank">_____</span>');
+    var result = escapedCtx.replace(new RegExp('\\b' + pattern + '\\b', 'gi'), '<span class="word-blank">_____</span>');
+    // If no match, try stem matching (e.g. word="divest", context has "divesting")
+    if (result === escapedCtx) {
+      var stem = word.replace(/(ing|ed|er|ers|es|s)$/, '');
+      if (stem.length >= 4) {
+        var stemPattern = esc(stem).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        result = escapedCtx.replace(new RegExp('\\b(' + stemPattern + '\\w*)\\b', 'gi'), '<span class="word-blank">_____</span>');
+      }
+    }
+    return result;
   }
 
   function shuffleArr(arr) { return arr.slice().sort(function(){return Math.random() - 0.5;}); }
@@ -646,7 +655,11 @@ function renderWordExercise() {
       correct = item.text;
       opts = shuffleArr(genDistractors(correct, allWords.concat(dictKeys), 3).concat([correct]));
     }
-    if (ctx && ctx.toLowerCase().indexOf(item.text.toLowerCase()) === -1) ctx = '';
+    if (ctx && ctx.toLowerCase().indexOf(item.text.toLowerCase()) === -1) {
+      // Try stem match before discarding context
+      var stem = item.text.toLowerCase().replace(/(ing|ed|er|ers|es|s)$/, '');
+      if (stem.length < 4 || ctx.toLowerCase().indexOf(stem) === -1) ctx = '';
+    }
     return { qType: qType, ctx: ctx, word: item.text, meaning: item.translation, correct: correct, opts: opts };
   });
 
@@ -666,8 +679,17 @@ function renderWordExercise() {
           prompt = '<div class="question-meaning">\u91ca\u4e49\uff1a' + esc(q.meaning) + '</div>' +
             (q.ctx ? '<div class="question-context">' + highlightWord(q.ctx, q.word) + '</div>' : '');
         } else {
-          prompt = '<div class="question-instruction">\u9009\u51fa\u586b\u5165\u7a7a\u767d\u5904\u7684\u8bcd</div>' +
-            (q.ctx ? '<div class="question-context cloze-context">' + blankWord(q.ctx, q.word) + '</div>' : '<div class="question-word">' + esc(q.word) + '</div>');
+          // cloze: generate blank, verify it worked
+          var blankedCtx = q.ctx ? blankWord(q.ctx, q.word) : '';
+          if (!blankedCtx || blankedCtx.indexOf('word-blank') === -1) {
+            // blankWord failed (word not found in context), fall back to en2cn
+            q.qType = 'en2cn';
+            prompt = '<div class="question-word">' + esc(q.word) + '</div>' +
+              (q.ctx ? '<div class="question-context">' + highlightWord(q.ctx, q.word) + '</div>' : '');
+          } else {
+            prompt = '<div class="question-instruction">\u9009\u51fa\u586b\u5165\u7a7a\u767d\u5904\u7684\u8bcd</div>' +
+              '<div class="question-context cloze-context">' + blankedCtx + '</div>';
+          }
         }
         return '<div class="word-question" data-idx="' + i + '">' +
           '<div class="question-num">' + (i+1) + '</div>' +
