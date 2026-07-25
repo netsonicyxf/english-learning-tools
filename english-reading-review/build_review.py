@@ -17,12 +17,20 @@ DEFAULT_DIR = str(Path.home() / "Desktop" / "English Learning")
 
 def extract_article_data(html_text):
     """Extract ARTICLE_DATA JSON from a reading HTML file."""
-    # Match: const ARTICLE_DATA = {...};
-    m = re.search(r'const ARTICLE_DATA\s*=\s*(\{.*?\});', html_text, re.DOTALL)
+    # Match: const ARTICLE_DATA = {...}; followed by const STORAGE_KEY.
+    # Greedy .* + STORAGE_KEY anchor so a `};` inside content can't truncate early.
+    m = re.search(
+        r'const ARTICLE_DATA\s*=\s*(\{.*\});\s*\n\s*const STORAGE_KEY',
+        html_text, re.DOTALL)
+    if not m:
+        # Fallback for templates without a STORAGE_KEY line right after.
+        m = re.search(r'const ARTICLE_DATA\s*=\s*(\{.*?\});', html_text, re.DOTALL)
     if not m:
         return None
+    # Undo the </ -> <\/ escaping applied when the file was generated.
+    raw = m.group(1).replace('<\\/', '</')
     try:
-        return json.loads(m.group(1))
+        return json.loads(raw)
     except json.JSONDecodeError:
         return None
 
@@ -36,37 +44,37 @@ def strip_html(html_text):
     return text.strip()
 
 
-def find_example_sentence(word, article_content):
-    """Find a sentence from the article containing this word."""
+def split_sentences(article_content):
+    """Strip HTML and split into sentences (protecting abbreviations/decimals)."""
     plain = strip_html(article_content)
-    # Protect abbreviations and decimals before splitting
-    plain_protected = re.sub(r'([A-Z])\.', lambda m: m.group(1) + '\x00', plain)
-    plain_protected = re.sub(r'(\d)\.(\d)', lambda m: m.group(1) + '\x01' + m.group(2), plain_protected)
-    sentences = re.findall(r'[^.!?]+[.!?]+', plain_protected)
-    sentences = [s.replace('\x00', '.').replace('\x01', '.') for s in sentences]
+    plain = re.sub(r'([A-Z])\.', lambda m: m.group(1) + '\x00', plain)
+    plain = re.sub(r'(\d)\.(\d)', lambda m: m.group(1) + '\x01' + m.group(2), plain)
+    sentences = re.findall(r'[^.!?]+[.!?]+', plain)
+    return [s.replace('\x00', '.').replace('\x01', '.') for s in sentences]
+
+
+def find_example_sentence(word, sentences):
+    """Find a sentence containing `word`, given pre-split sentences."""
+    def clip(s, needle):
+        s = s.strip()
+        if len(s) > 120:
+            idx = s.lower().index(needle)
+            start = max(0, idx - 50)
+            end = min(len(s), idx + len(needle) + 60)
+            s = ("..." if start > 0 else "") + s[start:end] + ("..." if end < len(s) else "")
+        return s
+
     lower = word.lower()
     # Exact word-boundary match first
     for s in sentences:
         if re.search(r'\b' + re.escape(lower) + r'\b', s, re.IGNORECASE):
-            s = s.strip()
-            if len(s) > 120:
-                idx = s.lower().index(lower)
-                start = max(0, idx - 50)
-                end = min(len(s), idx + len(word) + 60)
-                s = ("..." if start > 0 else "") + s[start:end] + ("..." if end < len(s) else "")
-            return s
-    # Stem fallback (e.g. "divest" -> "divesting")
+            return clip(s, lower)
+    # Stem fallback (e.g. "paradigm" -> "paradigms")
     stem = re.sub(r'(ing|ed|er|ers|es|s)$', '', lower)
     if len(stem) >= 4:
         for s in sentences:
             if stem in s.lower():
-                s = s.strip()
-                if len(s) > 120:
-                    idx = s.lower().index(stem)
-                    start = max(0, idx - 50)
-                    end = min(len(s), idx + len(word) + 60)
-                    s = ("..." if start > 0 else "") + s[start:end] + ("..." if end < len(s) else "")
-                return s
+                return clip(s, stem)
     return ""
 
 
@@ -124,41 +132,11 @@ def build_review(directory=DEFAULT_DIR, output=None):
                 master_vocab[w]["articles"].append(art_id)
                 master_vocab[w]["count"] += 1
 
-        # Extract example sentences (one per article to keep it fast)
-        plain = strip_html(content)
-        plain_prot = re.sub(r'([A-Z])\.', lambda m: m.group(1) + '\x00', plain)
-        plain_prot = re.sub(r'(\d)\.(\d)', lambda m: m.group(1) + '\x01' + m.group(2), plain_prot)
-        sentences = re.findall(r'[^.!?]+[.!?]+', plain_prot)
-        sentences = [s.replace('\x00', '.').replace('\x01', '.') for s in sentences]
+        # Extract example sentences (one per article, split once and reused)
+        sentences = split_sentences(content)
         for w, entry in master_vocab.items():
             if art_id in entry["articles"] and not entry["example"]:
-                wl = w.lower()
-                found = False
-                for s in sentences:
-                    if re.search(r'\b' + re.escape(wl) + r'\b', s, re.IGNORECASE):
-                        s = s.strip()
-                        if len(s) > 120:
-                            idx = s.lower().index(wl)
-                            start = max(0, idx - 40)
-                            end = min(len(s), idx + len(w) + 50)
-                            s = ("..." if start > 0 else "") + s[start:end] + ("..." if end < len(s) else "")
-                        entry["example"] = s
-                        found = True
-                        break
-                if not found:
-                    # Stem fallback
-                    stem = re.sub(r'(ing|ed|er|ers|es|s)$', '', wl)
-                    if len(stem) >= 4:
-                        for s in sentences:
-                            if stem in s.lower():
-                                s = s.strip()
-                                if len(s) > 120:
-                                    idx = s.lower().index(stem)
-                                    start = max(0, idx - 40)
-                                    end = min(len(s), idx + len(wl) + 50)
-                                    s = ("..." if start > 0 else "") + s[start:end] + ("..." if end < len(s) else "")
-                                entry["example"] = s
-                                break
+                entry["example"] = find_example_sentence(w, sentences)
 
         # Collect patterns
         for p in patterns:
@@ -183,7 +161,8 @@ def build_review(directory=DEFAULT_DIR, output=None):
 
     # Fill template
     template = TEMPLATE.read_text("utf-8")
-    data_json = json.dumps(review_data, ensure_ascii=False)
+    # Escape </ so a stray </script> in any field can't break out of the tag.
+    data_json = json.dumps(review_data, ensure_ascii=False).replace("</", "<\\/")
     html_output = template.replace("{{REVIEW_DATA_JSON}}", data_json)
 
     if output is None:

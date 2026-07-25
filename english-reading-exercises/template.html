@@ -45,6 +45,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica N
 .word-remove:hover{color:#e03131;background:#fee}
 .empty-hint{color:#8b95a5;font-size:13px;padding:20px 8px;text-align:center;line-height:1.6}
 
+/* ===== WORD HIGHLIGHT ===== */
+.word-highlight{background:#fef3c7;border-radius:3px;padding:1px 2px;transition:background .2s;cursor:pointer}
+.word-highlight:hover{background:#fde68a}
+
 /* ===== TOOLTIP ===== */
 .tooltip{display:none;position:fixed;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:12px 16px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:1000;max-width:320px;transition:opacity .1s}
 .tooltip-original{font-size:12px;color:#8b95a5;margin-bottom:3px;font-family:Georgia,serif;border-bottom:1px dashed #e5e7eb;padding-bottom:6px}
@@ -262,14 +266,25 @@ function init() {
   $title.textContent = ARTICLE_DATA.title;
   const metaParts = [ARTICLE_DATA.author, ARTICLE_DATA.source].filter(Boolean);
   if (metaParts.length) $meta.textContent = metaParts.join(' \u00b7 ');
-  renderArticle();
   loadWordBank();
+  renderArticleWithHighlights();
   renderWordBank();
   bindEvents();
 }
 
-function renderArticle() {
-  $article.innerHTML = ARTICLE_DATA.content;
+function renderArticleWithHighlights() {
+  var html = ARTICLE_DATA.content;
+  if (!wordBank.length) {
+    $article.innerHTML = html;
+    return;
+  }
+  var words = wordBank.slice().sort(function(a, b) { return b.text.length - a.text.length; });
+  words.forEach(function(w) {
+    var escaped = w.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    var regex = new RegExp('\\b(' + escaped + ')\\b', 'gi');
+    html = html.replace(regex, '<span class="word-highlight" data-word="' + w.text.toLowerCase() + '">$1</span>');
+  });
+  $article.innerHTML = html;
 }
 
 // ============================================================
@@ -278,6 +293,17 @@ function renderArticle() {
 function bindEvents() {
   // Selection → translate
   document.addEventListener('mouseup', handleSelection);
+
+  // Click on highlighted word → show tooltip
+  $article.addEventListener('click', function(e) {
+    var span = e.target.closest('.word-highlight');
+    if (!span) return;
+    var wordText = span.dataset.word;
+    var entry = wordBank.find(function(w) { return w.text.toLowerCase() === wordText; });
+    if (entry) {
+      showTooltip(e, entry.text, entry.translation, true);
+    }
+  });
 
   // Hide tooltip on outside click
   document.addEventListener('mousedown', e => {
@@ -346,21 +372,33 @@ function dictLookup(text) {
   return null;
 }
 
+var TRANSLATE_TIMEOUT = 5000;
+function fetchWithTimeout(url, ms) {
+  return new Promise(function(resolve, reject) {
+    var timer = setTimeout(function() { reject(new Error('timeout')); }, ms);
+    fetch(url).then(function(r) { clearTimeout(timer); resolve(r); }, function(e) { clearTimeout(timer); reject(e); });
+  });
+}
+
 async function translateAPI(text) {
-  // Primary: Google Translate (unofficial endpoint)
+  // Primary: MyMemory (faster in China, no key needed)
   try {
-    const url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-CN&dt=t&q=' + encodeURIComponent(text);
-    const r = await fetch(url);
-    if (!r.ok) throw new Error('GT fail');
-    const d = await r.json();
-    return d[0].map(x => x[0]).join('');
-  } catch (_) {
-    // Fallback: MyMemory
-    const url = 'https://api.mymemory.translated.net/get?q=' + encodeURIComponent(text) + '&langpair=en|zh-CN';
-    const r = await fetch(url);
+    var url = 'https://api.mymemory.translated.net/get?q=' + encodeURIComponent(text) + '&langpair=en|zh-CN';
+    var r = await fetchWithTimeout(url, TRANSLATE_TIMEOUT);
     if (!r.ok) throw new Error('MM fail');
-    const d = await r.json();
+    var d = await r.json();
     return d.responseData.translatedText;
+  } catch (_) {
+    // Fallback: Google Translate (unofficial, faster outside China / more accurate)
+    try {
+      var url2 = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-CN&dt=t&q=' + encodeURIComponent(text);
+      var r2 = await fetchWithTimeout(url2, TRANSLATE_TIMEOUT);
+      if (!r2.ok) throw new Error('GT fail');
+      var d2 = await r2.json();
+      return d2[0].map(function(x) { return x[0]; }).join('');
+    } catch (_2) {
+      throw new Error('all translate failed');
+    }
   }
 }
 
@@ -444,7 +482,7 @@ function addToWordBank(text, translation, context) {
     return;
   }
   wordBank.push({ text, translation, context: (context||'').substring(0,200), ts: Date.now() });
-  saveWordBank(); renderWordBank();
+  saveWordBank(); renderWordBank(); renderArticleWithHighlights();
 }
 
 function renderWordBank() {
@@ -465,7 +503,7 @@ function renderWordBank() {
   $wordList.querySelectorAll('.word-remove').forEach(b => {
     b.addEventListener('click', e => {
       wordBank.splice(parseInt(e.currentTarget.dataset.idx), 1);
-      saveWordBank(); renderWordBank();
+      saveWordBank(); renderWordBank(); renderArticleWithHighlights();
     });
   });
 }

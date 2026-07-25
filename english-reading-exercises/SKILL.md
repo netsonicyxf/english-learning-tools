@@ -1,6 +1,6 @@
 ---
 title: "English Reading Exercises"
-description: "上传英文文章链接或文本，自动生成交互式阅读网页。划词即译、自动记录单词本，阅读后生成五种练习：单词释义（三题型交叉）、句型结构填空、全文摘要完形、句子重排、概念关系图。"
+description: "上传英文文章链接或文本，自动生成交互式阅读网页。划词即译、自动记录单词本，阅读后生成六种练习：单词释义（三题型交叉）、句型改写、全文摘要完形、句子重排、概念关系图、背诵段落。"
 read_when:
   - User provides an English article URL or text and wants to learn from it
   - User says "阅读练习", "英文阅读", "reading exercises", "文章练习", "interactive reading"
@@ -23,7 +23,7 @@ read_when:
 
 1. **划词即译** — 鼠标选中任何单词或句子，立刻显示中文翻译
 2. **自动单词本** — 划过的内容自动收入侧边栏单词本，可导出
-3. **四种练习** — 阅读完毕后一键生成：单词释义（来自单词本）、全文摘要完形、句子重排、概念关系图
+3. **六种练习** — 阅读完毕后一键生成：单词释义（来自单词本）、句型练习、全文摘要完形、句子重排、概念关系图、背诵段落
 
 输出为单个自包含 HTML 文件，保存到 `~/Desktop/English Learning/` 目录。划词翻译需要联网。
 
@@ -253,9 +253,13 @@ import json
 from pathlib import Path
 
 template = Path.home().joinpath(".workbuddy/skills/english-reading-exercises/template.html").read_text("utf-8")
-data_json = json.dumps(article_data, ensure_ascii=False)  # article_data 是组装好的字典
+# ensure_ascii=False 保留中文；替换 </ 防止 content 里出现 </script> 提前关闭标签
+data_json = json.dumps(article_data, ensure_ascii=False).replace("</", "<\\/")  # article_data 是组装好的字典
 html = template.replace("{{ARTICLE_DATA_JSON}}", data_json)
-Path.home()/"Desktop/English Learning/output-reading.html".write_text(html, "utf-8")
+slug = article_data["id"]  # 用文章 slug 命名，与 Step 7 一致
+out = Path.home() / "Desktop/English Learning" / f"{slug}-reading.html"
+out.parent.mkdir(parents=True, exist_ok=True)
+out.write_text(html, "utf-8")  # 注意 () 包裹：/ 优先级低于 . ，否则会对 str 调 write_text 报错
 ```
 
 或手动替换：读取模板文件，将 `{{ARTICLE_DATA_JSON}}` 替换为 JSON 字符串（注意 `content` 字段中 HTML 标签和引号的转义）。保存为 `{slug}-reading.html` 到 `~/Desktop/English Learning/`。
