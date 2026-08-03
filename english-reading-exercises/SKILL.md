@@ -4,6 +4,7 @@ description: "上传英文文章链接或文本，自动生成交互式阅读网
 read_when:
   - User provides an English article URL or text and wants to learn from it
   - User says "阅读练习", "英文阅读", "reading exercises", "文章练习", "interactive reading"
+  - User says "阅读练习" or "练练阅读" without providing a link — should auto-fetch from Notion database
   - User wants to create exercises based on an English article
   - User mentions "划词翻译", "单词本", "完形填空", "概念图" related to English articles
 ---
@@ -32,14 +33,93 @@ read_when:
 - 概念图用力导向自动布局（force-directed layout），AI 提供的坐标仅作为初始参考，渲染时自动优化间距、消除重叠
 - 概念图空白节点/边用下拉菜单选择（非手打填空），检查后显示关系总结面板
 
+## Notion 数据库参考
+
+LR Materials 数据库：
+- 数据库页面：`https://lonelyreader.notion.site/c672f915433443dfa0d14570493e7f5d`
+- Collection ID：`f4909729-788b-459f-8681-4456274467f5`
+- Collection View ID：`31a202c6-de74-802d-951a-000cc3d6c4d4`
+- Space ID：`758a535f-f32a-4e6f-b3fc-bc3cabc2bcf2`
+
+Property schema（字段名/类型）：
+| 属性名 | 字段 ID | 类型 | 说明 |
+|--------|---------|------|------|
+| 资料名称 | `title` | title | 文章标题 |
+| 发布日期 | `XOQK` | date | 发布日期（`start_date` 格式） |
+| 语言 | `\\R\`H` | select | 语言组合（如 中英、中英西） |
+| 资料类型 | `awgs` | select | 文章/视频/外语杂志速读指南 |
+| 资料主题 | `G\\_R` | multi_select | 标签（如 宏观经济、科技资讯） |
+
 ## Workflow
 
-### Step 1: 接收输入
+### Step 1: 获取文章来源
+
+有两种路径：
+
+**路径 A — 用户提供了文章 URL 或粘贴了文本**
 
 - **URL**: 用 WebFetch 获取网页内容，提取正文（去掉导航、广告、侧边栏等非正文元素）。标题、作者等元信息一并提取。
 - **粘贴文本**: 直接使用用户提供的文本。
 
 如果用户给的 URL 内容无法正常提取，提示用户粘贴文本。
+
+**路径 B — 用户没有提供具体文章（只说"阅读练习"、"练练阅读"等）**
+
+从 Notion LR Materials 数据库自动拉取近期文章列表，让用户选择：
+
+1. 检查是否有 `token_v2` cookie。如果当前会话中用户未提供，提示用户提供 Notion 的 `token_v2` cookie（从浏览器 DevTools → Application → Cookies → `lonelyreader.notion.site` → `token_v2` 复制）。
+
+2. 调用 `queryCollection` 获取全部文章列表（按发布日期降序）：
+```bash
+curl -s 'https://www.notion.so/api/v3/queryCollection' \
+  -H 'Content-Type: application/json' \
+  -H "Cookie: token_v2=${TOKEN}" \
+  -d '{
+    "collectionId": "f4909729-788b-459f-8681-4456274467f5",
+    "collectionViewId": "31a202c6-de74-802d-951a-000cc3d6c4d4",
+    "spaceId": "758a535f-f32a-4e6f-b3fc-bc3cabc2bcf2",
+    "loader": {
+      "type": "table",
+      "reducers": {"collection_group_results": {"type": "results", "limit": 999}},
+      "sort": [{"id": "XOQK", "direction": "descending"}],
+      "searchQuery": "",
+      "userTimeZone": "Asia/Shanghai",
+      "userLocale": "zh-CN"
+    },
+    "query": {"filter": {"filters": [], "operator": "and"}, "sort": [{"id": "XOQK", "direction": "descending"}]}
+  }'
+```
+
+3. 解析返回结果：
+   - `result.reducerResults.collection_group_results.blockIds` → 文章 block ID 列表
+   - `recordMap.block[blockId].value.value.properties` → 文章属性
+   - 标题：`properties.title` 中所有片段的 `[0]` 拼接
+   - 日期：`properties.XOQK[0][1][0][1].start_date`
+   - 语言：`properties["\\R\`H"][0][0]`
+   - 类型：`properties.awgs[0][0]`
+   - 标签：`properties["G\\_R"]` 所有元素的 `[0]` 拼接
+   
+   注意：block 值有**双重嵌套**：`block[bid].value.value.properties`（不是 `block[bid].value.properties`）。
+
+4. 按日期降序排列，展示**最新 10 篇**给用户选择。格式：`序号 | 日期 | 标题（前 60 字）`。说「最近更新这几篇，看看有哪个想练的？」。如果用户想选更早的，再展示更多。
+
+5. 用户选择后，调用 `loadPageChunk` 获取文章正文：
+```bash
+curl -s 'https://www.notion.so/api/v3/loadPageChunk' \
+  -H 'Content-Type: application/json' \
+  -H "Cookie: token_v2=${TOKEN}" \
+  -d "{\"pageId\":\"<用户选的blockId>\",\"limit\":100,\"cursor\":{\"stack\":[]},\"chunkNumber\":0,\"verticalColumns\":false}"
+```
+
+6. 从 `recordMap.block` 中提取正文：
+   - 过滤出 content block（排除 page block 自身）：`type` 为 `text`、`header`、`sub_header`、`bulleted_list`、`numbered_list`、`quote` 等
+   - 从每个 block 的 `properties.title` 中提取文本（title 格式为 `[["text", [["b"]]], ...]`）
+   - 转换为对应 HTML：text → `<p>`，header → `<h2>`，sub_header → `<h3>`，quote → `<blockquote>`，bulleted_list → `<ul><li>`，numbered_list → `<ol><li>`
+   - block 的 content 数组可能包含子 block，需递归处理
+
+7. 标题从 `properties.title` 中提取（同上格式），作为 `article_data.title`。
+
+然后回到 Step 2 继续处理。
 
 ### Step 2: 处理文章内容
 
