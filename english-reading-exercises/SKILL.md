@@ -69,7 +69,7 @@ Property schema（字段名/类型）：
 
 1. 检查是否有 `token_v2` cookie。如果当前会话中用户未提供，提示用户提供 Notion 的 `token_v2` cookie（从浏览器 DevTools → Application → Cookies → `lonelyreader.notion.site` → `token_v2` 复制）。
 
-2. 调用 `queryCollection` 获取全部文章列表（按发布日期降序）：
+2. 调用 `queryCollection` 获取文章列表（server 端 sort 会返回 400，不带 sort，Python 侧排序）：
 ```bash
 curl -s 'https://www.notion.so/api/v3/queryCollection' \
   -H 'Content-Type: application/json' \
@@ -80,13 +80,13 @@ curl -s 'https://www.notion.so/api/v3/queryCollection' \
     "spaceId": "758a535f-f32a-4e6f-b3fc-bc3cabc2bcf2",
     "loader": {
       "type": "table",
-      "reducers": {"collection_group_results": {"type": "results", "limit": 999}},
-      "sort": [{"id": "XOQK", "direction": "descending"}],
+      "reducers": {"collection_group_results": {"type": "results", "limit": 100}},
+      "sort": [],
       "searchQuery": "",
       "userTimeZone": "Asia/Shanghai",
       "userLocale": "zh-CN"
     },
-    "query": {"filter": {"filters": [], "operator": "and"}, "sort": [{"id": "XOQK", "direction": "descending"}]}
+    "query": {"filter": {"filters": [], "operator": "and"}, "sort": []}
   }'
 ```
 
@@ -101,7 +101,7 @@ curl -s 'https://www.notion.so/api/v3/queryCollection' \
    
    注意：block 值有**双重嵌套**：`block[bid].value.value.properties`（不是 `block[bid].value.properties`）。
 
-4. 按日期降序排列，展示**最新 10 篇**给用户选择。格式：`序号 | 日期 | 标题（前 60 字）`。说「最近更新这几篇，看看有哪个想练的？」。如果用户想选更早的，再展示更多。
+4. Python 侧按日期降序排列，展示**最新 10 篇**给用户选择。格式：`序号 | 日期 | 标题（前 60 字）`。说「最近更新这几篇，看看有哪个想练的？」。如果用户想选更早的，再展示更多。
 
 5. 用户选择后，调用 `loadPageChunk` 获取文章正文：
 ```bash
