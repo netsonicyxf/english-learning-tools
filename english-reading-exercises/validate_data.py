@@ -28,8 +28,9 @@ def validate(article_data):
     for i, p in enumerate(exercises.get("sentencePatterns", [])):
         for j, q in enumerate(p.get("questions", [])):
             correct = q["options"][q["answer"]]
-            input_nums = set(re.findall(r'\d[\d,.]*', q["input"]))
-            answer_nums = set(re.findall(r'\d[\d,.]*', correct))
+            # Extract numbers and strip trailing punctuation (comma in "when X, Y" clauses, etc.)
+            input_nums = set(n.rstrip('.,;:!?)') for n in re.findall(r'\d[\d,.]*', q["input"]))
+            answer_nums = set(n.rstrip('.,;:!?)') for n in re.findall(r'\d[\d,.]*', correct))
             new_nums = answer_nums - input_nums
             if new_nums:
                 errors.append(
