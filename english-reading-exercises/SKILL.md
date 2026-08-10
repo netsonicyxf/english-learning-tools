@@ -232,16 +232,18 @@ curl -s 'https://www.notion.so/api/v3/loadPageChunk' \
 - `name`：句型名称（如 "Having done... 主语 now..."）
 - `formula`：结构公式（如 "Having + [过去分词], [主语] now + [谓语]"）
 - `explanation`：中文简述用法和语境（1-2 句）
-- `source`：文章中的**原句**（完整引用，不改写）
-- `questions`：2-3 道**句式改写选择题**——给一个简单句，列出 4 个改写版本，选正确的一个
+- `source`：文章中的**原句**（完整引用，不作任何修改）
+- `questions`：1-2 道**句式改写选择题**——给一个简单句，列出 4 个改写版本，选正确的一个
 
 要求：
-- 句型必须是文章中**实际出现**的，不要编造
-- `source` 是文章原句（展示用）
+- 句型必须是文章中**实际出现**的，不要编造；`source` 必须能从文章 `content` 中按字符串精确匹配找到
+- `source` 是文章原句（展示用），直接复制粘贴，**不删减、不加字、不改标点**
 - 每道题的 `input` 是一个简单句（话题与文章相关），要求用目标句型改写
+- **关键：`input` 到正确选项的改写必须保持语义等价**——正确选项不能引入 `input` 中没有的信息（时间、数字、事实等），只能做句式转换
 - 4 个 `options` 中只有一个语法正确、语义通顺的改写版本
 - 干扰项应包含常见错误：时态错误、结构残缺、语序错误、搭配错误等
 - 难度递进：简单结构在前，复杂结构在后
+- 如果某个句型有陈述式和反问式两种变体（如 "It is + adj + that" 和 "Isn't it + adj + that"），各出一题分别测试
 
 数据格式：
 ```json
@@ -324,6 +326,59 @@ curl -s 'https://www.notion.so/api/v3/loadPageChunk' \
 }
 ```
 
+### Step 5.5: 校验数据（必须执行）
+
+组装 JSON 后、注入模板前，**必须运行以下 Python 校验**。不通过则返回 Step 4 重新生成对应部分：
+
+```python
+import json
+
+def validate(article_data):
+    content = article_data["content"]
+    exercises = article_data["exercises"]
+    errors = []
+
+    # 1. 句型源句必须在原文中逐字存在
+    for i, p in enumerate(exercises.get("sentencePatterns", [])):
+        if p["source"] not in content:
+            errors.append(f"句型{i+1}的source不在原文中: {p['source'][:60]}...")
+
+    # 2. 句子重排的每个句子必须在原文中
+    for gi, group in enumerate(exercises.get("sentenceReorder", [])):
+        for si, s in enumerate(group["sentences"]):
+            if s["text"] not in content:
+                errors.append(f"重排组{gi+1}句子{si+1}不在原文中: {s['text'][:60]}...")
+
+    # 3. 背诵段落的每段必须在原文中
+    for pi, passage in enumerate(exercises.get("recitation", {}).get("passages", [])):
+        if passage["text"] not in content:
+            errors.append(f"背诵段落{pi+1}不在原文中: {passage['text'][:60]}...")
+
+    # 4. 句型题目：正确选项不能引入input中没有的信息
+    for i, p in enumerate(exercises.get("sentencePatterns", [])):
+        for j, q in enumerate(p.get("questions", [])):
+            correct = q["options"][q["answer"]]
+            # 提取input中的数字
+            import re
+            input_nums = set(re.findall(r'\d[\d,.]*', q["input"]))
+            answer_nums = set(re.findall(r'\d[\d,.]*', correct))
+            new_nums = answer_nums - input_nums
+            if new_nums:
+                errors.append(f"句型{i+1}Q{j+1}: 正确选项引入了input中没有的数字 {new_nums}")
+
+    if errors:
+        print("❌ 校验失败:")
+        for e in errors:
+            print(f"  - {e}")
+        return False
+    print("✅ 校验通过")
+    return True
+
+# 使用: validate(article_data)
+```
+
+**如果校验失败**，哪部分报错就重做哪部分（回到 Step 4），重做后再次校验，通过后才能进入 Step 6。
+
 ### Step 6: 填入模板
 
 推荐用脚本生成（避免 JSON 转义错误）：
@@ -356,3 +411,4 @@ out.write_text(html, "utf-8")  # 注意 () 包裹：/ 优先级低于 . ，否�
 - **句子重排的句子**：保持原文句子，不要改写。
 - **概念图坐标**：只需大致合理即可，力导向布局会自动优化。重点关注概念选择和关系标签的质量，而非坐标精度。
 - **文章内容 HTML**：段落用 `<p>` 标签，保留原文结构。不要用纯文本换行。
+- **Step 5.5 校验不可跳过**：历史上两次出 bug 都是因为 LLM 编造了不在原文中的 `source`/`text`，或题目正确选项引入了输入中没有的信息。校验脚本必须在每次生成后运行，不通过不许保存。
