@@ -676,8 +676,13 @@ function renderWordExercise() {
           prompt = '<div class="question-word">' + esc(q.word) + '</div>' +
             (q.ctx ? '<div class="question-context">' + highlightWord(q.ctx, q.word) + '</div>' : '');
         } else if (q.qType === 'cn2en') {
-          prompt = '<div class="question-meaning">\u91ca\u4e49\uff1a' + esc(q.meaning) + '</div>' +
-            (q.ctx ? '<div class="question-context">' + highlightWord(q.ctx, q.word) + '</div>' : '');
+          var blankedCtxCn = q.ctx ? blankWord(q.ctx, q.word) : '';
+          if (blankedCtxCn && blankedCtxCn.indexOf('word-blank') !== -1) {
+            prompt = '<div class="question-meaning">\u91ca\u4e49\uff1a' + esc(q.meaning) + '</div>' +
+              '<div class="question-context cloze-context">' + blankedCtxCn + '</div>';
+          } else {
+            prompt = '<div class="question-meaning">\u91ca\u4e49\uff1a' + esc(q.meaning) + '</div>';
+          }
         } else {
           // cloze: generate blank, verify it worked
           var blankedCtx = q.ctx ? blankWord(q.ctx, q.word) : '';
