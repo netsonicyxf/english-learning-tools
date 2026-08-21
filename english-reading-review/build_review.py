@@ -200,11 +200,30 @@ def build_review(directory=DEFAULT_DIR, output=None):
         output = str(Path(directory) / "review-all.html")
     Path(output).write_text(html_output, "utf-8")
 
+    # Vocab export for the vocab-drill pipeline: raw material for --add/--card.
+    # core = words appearing in >1 article (highest-value batch), all = everything.
+    vocab_out = Path(output).with_name("review-vocab.json")
+
+    def _entry(v):
+        return {k: v[k] for k in ("word", "meaning", "example", "count", "articles")}
+
+    ordered = sorted(master_vocab.values(),
+                     key=lambda v: (-v["count"], v["word"].lower()))
+    vocab_export = {
+        "generated": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "core": [_entry(v) for v in ordered if v["count"] > 1],
+        "all": [_entry(v) for v in ordered],
+    }
+    vocab_out.write_text(
+        json.dumps(vocab_export, ensure_ascii=False, indent=1), "utf-8")
+
     print(f"\n✓ Review page: {output}")
     print(f"  Articles: {len(articles_meta)}")
     print(f"  Unique words: {len(master_vocab)}")
     print(f"  Shared words: {shared_words}")
     print(f"  Patterns: {len(all_patterns)}")
+    print(f"✓ Vocab export: {vocab_out} "
+          f"(core {len(vocab_export['core'])} / all {len(vocab_export['all'])})")
 
 
 if __name__ == "__main__":

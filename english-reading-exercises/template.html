@@ -510,6 +510,17 @@ function renderWordBank() {
   });
 }
 
+function copyText(t) {
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = t;
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    return true;
+  } catch (e) { return false; }
+}
+
 function exportWordBank() {
   if (!wordBank.length) { alert('\u5355\u8bcd\u672c\u4e3a\u7a7a'); return; }
   const lines = wordBank.map(w => w.text + '\t' + w.translation + '\t' + (w.context||''));
@@ -518,6 +529,9 @@ function exportWordBank() {
   a.href = URL.createObjectURL(blob);
   a.download = 'wordbank-' + ARTICLE_DATA.id + '.txt';
   a.click(); URL.revokeObjectURL(a.href);
+  const copied = copyText(wordBank.map(w => w.text).join(','));
+  alert('\u5df2\u5bfc\u51fa wordbank-' + ARTICLE_DATA.id + '.txt\uff0c' +
+        (copied ? '\u5e76\u5df2\u628a ' + wordBank.length + ' \u4e2a\u5355\u8bcd\uff08\u9017\u53f7\u5206\u9694\uff09\u590d\u5236\u5230\u526a\u8d34\u677f' : '\u526a\u8d34\u677f\u590d\u5236\u5931\u8d25\uff0c\u4ee5 txt \u4e3a\u51c6'));
 }
 
 // ============================================================

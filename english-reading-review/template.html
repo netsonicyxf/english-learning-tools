@@ -170,10 +170,44 @@ function mergeWordBank() {
   });
 
   var wbWords = Object.values(wbMap);
+  REVIEW_DATA.buildVocabCount = Object.keys(buildExamples).length;
+  REVIEW_DATA.usingWordbank = wbWords.length > 0;
   if (wbWords.length > 0) {
     REVIEW_DATA.masterVocab = wbWords;
   }
   REVIEW_DATA.stats.totalUniqueWords = REVIEW_DATA.masterVocab.length;
+}
+
+// === EXPORT WORDBANK (clipboard + txt, for vocab-drill import) ===
+function copyText(t) {
+  try {
+    var ta = document.createElement('textarea');
+    ta.value = t;
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    return true;
+  } catch (e) { return false; }
+}
+
+function exportWordbank() {
+  var list = REVIEW_DATA.masterVocab.slice().sort(function(a, b) {
+    return (b.count || 1) - (a.count || 1) || a.word.localeCompare(b.word);
+  });
+  // txt：word\t释义\t文章例句（与 reading 页 wordbank 导出同格式）
+  var lines = list.map(function(v) {
+    return [v.word, v.meaning || '', (v.example || '').replace(/\s+/g, ' ').trim()].join('\t');
+  });
+  var copied = copyText(list.map(function(v) { return v.word; }).join(','));
+  try {
+    var blob = new Blob([lines.join('\n')], {type: 'text/plain;charset=utf-8'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'wordbank-export.txt';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  } catch (e) {}
+  alert('已导出 wordbank-export.txt（' + list.length + ' 词，含释义和例句），' +
+        (copied ? '单词列表（逗号分隔）已复制到剪贴板' : '剪贴板复制失败，以 txt 为准') + '。');
 }
 
 // === INIT ===
@@ -218,6 +252,14 @@ function renderDashboard() {
     '<div class="stat-card"><div class="stat-num">' + s.totalArticles + '</div><div class="stat-label">已读文章</div></div>' +
     '<div class="stat-card"><div class="stat-num">' + s.totalUniqueWords + '</div><div class="stat-label">累计生词</div></div>' +
     '<div class="stat-card"><div class="stat-num">' + s.totalPatterns + '</div><div class="stat-label">句型结构</div></div>' +
+  '</div>';
+
+  var srcNote = REVIEW_DATA.usingWordbank
+    ? '当前词表：你的划词词本（' + s.totalUniqueWords + ' 词）· 文章词典全量 ' + REVIEW_DATA.buildVocabCount + ' 词'
+    : '当前词表：文章词典全量（浏览器里没有你的划词记录）';
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin:14px 0 4px;flex-wrap:wrap">' +
+    '<span style="font-size:13px;color:#8b95a5">' + srcNote + '</span>' +
+    '<button class="btn" onclick="exportWordbank()">导出词本</button>' +
   '</div>';
 
   html += '<h3 style="font-size:16px;font-weight:600;color:#344054;margin-bottom:12px">文章列表</h3>';
