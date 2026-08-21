@@ -7,28 +7,29 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html{font-size:16px}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f5f6f7;color:#1a1a2e;line-height:1.6}
+:root{--navy:#173b78;--coral:#ff655d;--sky:#45c7e9;--sun:#ffd43b;--leaf:#49bd68;--cream:#fff4d8;--white:#fffaf0;--ink:#17345f;--muted:#6d6a61}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--cream);color:var(--ink);line-height:1.6}
 
 /* ===== TOP BAR ===== */
-.top-bar{display:flex;justify-content:space-between;align-items:center;padding:14px 24px;background:#fff;border-bottom:1px solid #e5e7eb;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.top-bar{display:flex;justify-content:space-between;align-items:center;padding:14px 24px;background:var(--navy);border-bottom:3px solid var(--navy);position:sticky;top:0;z-index:100;box-shadow:0 4px 0 rgba(23,59,120,.35)}
 .top-bar h1{font-size:18px;font-weight:600}
 .top-bar .stats{font-size:13px;color:#8b95a5}
 
 /* ===== TABS ===== */
 .review-tabs{display:flex;gap:8px;padding:16px 24px 0;max-width:1100px;margin:0 auto;flex-wrap:wrap}
-.tab{padding:8px 18px;border:1px solid #d0d5dd;background:#fff;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;color:#344054;transition:all .15s}
+.tab{padding:8px 18px;border:2px solid var(--navy);background:var(--white);border-radius:9px 12px 8px 11px;cursor:pointer;font-size:14px;font-weight:700;color:var(--navy);transition:all .15s}
 .tab:hover{background:#f9fafb;border-color:#98a2b3}
-.tab.active{background:#4263eb;color:#fff;border-color:#4263eb}
+.tab.active{background:var(--navy);color:var(--sun);border-color:var(--navy);box-shadow:3px 3px 0 var(--coral);transform:rotate(-1deg)}
 
 /* ===== CONTENT ===== */
 .review-content{padding:24px;max-width:1100px;margin:0 auto}
 
 /* ===== DASHBOARD ===== */
 .stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}
-.stat-card{background:#fff;border-radius:12px;padding:16px 20px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.stat-card{background:var(--white);border:2.5px solid var(--navy);border-radius:16px 20px 14px 18px;padding:16px 20px;text-align:center;box-shadow:5px 6px 0 rgba(23,59,120,.8);transform:rotate(-.5deg)}
 .stat-num{font-size:28px;font-weight:700;color:#4263eb}
 .stat-label{font-size:12px;color:#8b95a5;margin-top:4px}
-.article-card{background:#fff;border-radius:10px;padding:16px 20px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.04);display:flex;justify-content:space-between;align-items:center}
+.article-card{background:var(--white);border:2px solid var(--navy);border-radius:12px 16px 11px 15px;padding:16px 20px;margin-bottom:10px;box-shadow:4px 5px 0 rgba(23,59,120,.7);display:flex;justify-content:space-between;align-items:center}
 .article-info h3{font-size:15px;font-weight:600;color:#1a1a2e}
 .article-info .meta{font-size:12px;color:#8b95a5;margin-top:3px}
 .article-badges{display:flex;gap:8px}
@@ -38,7 +39,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 
 /* ===== FLASHCARDS ===== */
 .flashcard-area{display:flex;flex-direction:column;align-items:center;gap:20px;padding:20px 0}
-.flashcard{width:100%;max-width:500px;min-height:200px;background:#fff;border-radius:16px;box-shadow:0 4px 12px rgba(0,0,0,.08);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;cursor:pointer;transition:all .2s;border:2px solid transparent}
+.flashcard{width:100%;max-width:500px;min-height:200px;background:var(--white);border:2.5px solid var(--navy);border-radius:20px 26px 18px 23px;box-shadow:7px 8px 0 rgba(23,59,120,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;cursor:pointer;transition:all .2s}
 .flashcard:hover{border-color:#e0e7ff}
 .flashcard.flipped{border-color:#4263eb}
 .flashcard-word{font-size:28px;font-weight:700;color:#1a1a2e;font-family:Georgia,serif;text-align:center}
@@ -48,27 +49,27 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .flashcard-source{font-size:11px;color:#bbb;margin-top:12px}
 .flashcard-hint{font-size:12px;color:#bbb;margin-top:8px}
 .flashcard-actions{display:flex;gap:12px}
-.fc-btn{padding:10px 28px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s}
-.fc-know{background:#d3f9d8;color:#2f9e44}
+.fc-btn{padding:10px 28px;border:2px solid var(--navy);border-radius:11px 14px 10px 13px;font-size:14px;font-weight:800;cursor:pointer;transition:all .15s;box-shadow:3px 3px 0 var(--navy)}
+.fc-know{background:#d3f2d9;color:#1e7a3c}
 .fc-know:hover{background:#b2f2bb}
-.fc-fuzzy{background:#fef3c7;color:#92400e}
+.fc-fuzzy{background:#ffe4b8;color:#9a5b12}
 .fc-fuzzy:hover{background:#fde68a}
-.fc-dont{background:#fee;color:#e03131}
+.fc-dont{background:#ffd9ce;color:#b3372c}
 .fc-dont:hover{background:#fcc}
 .fc-btn:disabled{opacity:.4;cursor:default}
-.progress-bar{width:100%;max-width:500px;height:6px;background:#e5e7eb;border-radius:3px;overflow:hidden}
-.progress-fill{height:100%;background:#4263eb;transition:width .3s;border-radius:3px}
+.progress-bar{width:100%;max-width:500px;height:10px;background:var(--white);border:2px solid var(--navy);border-radius:6px;overflow:hidden}
+.progress-fill{height:100%;background:var(--sun);transition:width .3s}
 .progress-text{font-size:13px;color:#8b95a5}
 .flashcard-complete{text-align:center;padding:40px}
 .flashcard-complete h2{font-size:20px;color:#2f9e44;margin-bottom:8px}
 .flashcard-complete p{font-size:14px;color:#8b95a5}
 
 /* ===== PATTERN PRACTICE ===== */
-.pattern-card{background:#f9fafb;border-radius:8px;padding:16px 20px;margin-bottom:16px;border-left:3px solid #4263eb}
+.pattern-card{background:var(--white);border:2px solid var(--navy);border-radius:14px 18px 12px 16px;padding:16px 20px;margin-bottom:16px;border-left:8px solid var(--coral);box-shadow:4px 5px 0 rgba(23,59,120,.7)}
 .pattern-name{font-size:16px;font-weight:700;color:#4263eb;margin-bottom:6px;font-family:Georgia,serif}
 .pattern-formula{font-size:13px;color:#344054;margin-bottom:8px;font-style:italic;background:#e0e7ff;padding:4px 10px;border-radius:4px;display:inline-block}
 .pattern-explanation{font-size:13px;color:#5a6577;margin-bottom:10px;line-height:1.6}
-.pattern-source{font-size:14px;color:#2d3748;font-family:Georgia,serif;padding:10px 14px;background:#fff;border-radius:6px;border:1px solid #e5e7eb;line-height:1.7}
+.pattern-source{font-size:14px;color:var(--ink);font-family:Georgia,serif;padding:10px 14px;background:var(--cream);border-radius:8px 11px 7px 10px;border:2px dashed rgba(23,59,120,.3);line-height:1.7}
 .pattern-article-tag{font-size:11px;color:#8b95a5;margin-top:6px}
 .pattern-cloze{margin-bottom:28px;padding:16px 20px;background:#fff;border-radius:8px;border:1px solid #e5e7eb}
 .cloze-text{font-family:Georgia,serif;font-size:16px;line-height:2;color:#2d3748;margin-bottom:12px}
@@ -98,6 +99,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 </style>
 </head>
 <body>
+<div style="position:fixed;z-index:9999;inset:0;pointer-events:none;opacity:.08;mix-blend-mode:multiply;background-image:radial-gradient(rgba(23,59,120,.32) .55px,transparent .7px),radial-gradient(rgba(255,101,93,.24) .5px,transparent .75px);background-position:0 0,7px 9px;background-size:11px 11px,15px 15px"></div>
 
 <div class="top-bar">
   <h1>📖 复习中心</h1>
