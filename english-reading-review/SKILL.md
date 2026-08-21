@@ -34,8 +34,10 @@ read_when:
 用 Python 脚本扫描目录（默认 `~/Desktop/English Learning/`）下的 `*-reading.html` 文件：
 
 ```bash
-python3 ~/.workbuddy/skills/english-reading-review/build_review.py [目录] [输出路径]
+python3 <本 skill 安装目录>/build_review.py [目录] [输出路径]
 ```
+
+脚本与模板同目录，路径按实际安装位置替换（勿写死绝对路径）。macOS 上若目录枚举被 TCC 拦截（如未授权的 ~/Desktop），脚本会自动尝试借 Finder 枚举，只需在弹窗里允许一次。
 
 ### Step 2: 提取 & 汇总
 
@@ -53,7 +55,7 @@ python3 ~/.workbuddy/skills/english-reading-review/build_review.py [目录] [输
 
 ### Step 3: 生成复习页面
 
-读取模板 `~/.workbuddy/skills/english-reading-review/template.html`，将 `{{REVIEW_DATA_JSON}}` 替换为汇总 JSON，输出 `review-all.html`。
+读取模板（`build_review.py` 同目录下的 `template.html`，脚本已按自身位置解析），将 `{{REVIEW_DATA_JSON}}` 替换为汇总 JSON，输出 `review-all.html`。
 
 ### Step 4: 交付
 

@@ -387,7 +387,9 @@ def validate(article_data):
 import json
 from pathlib import Path
 
-template = Path.home().joinpath(".workbuddy/skills/english-reading-exercises/template.html").read_text("utf-8")
+# 本 skill 安装目录（即本 SKILL.md 所在目录），不要写死绝对路径
+SKILL_DIR = Path("<本 skill 的安装目录>")
+template = (SKILL_DIR / "template.html").read_text("utf-8")
 # ensure_ascii=False 保留中文；替换 </ 防止 content 里出现 </script> 提前关闭标签
 data_json = json.dumps(article_data, ensure_ascii=False).replace("</", "<\\/")  # article_data 是组装好的字典
 html = template.replace("{{ARTICLE_DATA_JSON}}", data_json)

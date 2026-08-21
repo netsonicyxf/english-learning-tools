@@ -8,11 +8,39 @@ import json
 import re
 import sys
 import glob
+import subprocess
 from pathlib import Path
 from datetime import datetime
 
-TEMPLATE = Path.home() / ".workbuddy/skills/english-reading-review/template.html"
+TEMPLATE = Path(__file__).resolve().parent / "template.html"
 DEFAULT_DIR = str(Path.home() / "Desktop" / "English Learning")
+
+
+def list_reading_files(directory):
+    """Enumerate *-reading.html in directory.
+
+    macOS TCC can block directory listing (glob silently returns nothing)
+    while read/write by exact path still works — e.g. ~/Desktop for agents
+    without Full Disk Access. Fall back to borrowing Finder's permission.
+    """
+    files = sorted(glob.glob(str(Path(directory) / "*-reading.html")))
+    if files:
+        return files
+    if sys.platform == "darwin":
+        script = (
+            'tell application "Finder" to get name of every file of '
+            f'(POSIX file "{directory}" as alias)'
+        )
+        try:
+            res = subprocess.run(["osascript", "-e", script],
+                                 capture_output=True, text=True, timeout=30)
+            names = [n.strip() for n in res.stdout.split(",")
+                     if n.strip().endswith("-reading.html")]
+            if names:
+                return sorted(str(Path(directory) / n) for n in names)
+        except Exception:
+            pass
+    return []
 
 
 def extract_article_data(html_text):
@@ -80,9 +108,12 @@ def find_example_sentence(word, sentences):
 
 def build_review(directory=DEFAULT_DIR, output=None):
     """Build review HTML from all reading files in directory."""
-    files = sorted(glob.glob(str(Path(directory) / "*-reading.html")))
+    files = list_reading_files(directory)
     if not files:
         print(f"No *-reading.html files found in {directory}")
+        print("(If this is ~/Desktop and the terminal lacks permission, "
+              "grant Desktop access in System Settings > Privacy & Security, "
+              "or approve the Finder automation prompt.)")
         sys.exit(1)
 
     print(f"Found {len(files)} reading file(s):")
