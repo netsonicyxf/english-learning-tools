@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Build the IELTS correction HTML from JSON data, and place a writer.html
 alongside it so the 「重写」 button can open a fresh writing page.
-Also appends band-score record to corrections-log.jsonl for progress tracking."""
+Also appends the full record (scores + annotations) to corrections-log.jsonl,
+which build_correction_review.py reads as its primary data source."""
 import json, sys, argparse, shutil, datetime
 from pathlib import Path
 
@@ -47,6 +48,8 @@ def main():
     (out.parent / "writer.html").write_text(writer_html, "utf-8")
 
     # --- append to corrections-log.jsonl for progress tracking ---
+    # Full record incl. annotations: the log is the durable data source,
+    # the HTML is just a rendering of it (review reads the log, not the HTML).
     annos = data.get("annotations", [])
     record = {
         "slug": data["id"],
@@ -56,6 +59,10 @@ def main():
         "band": data.get("band", {}),
         "errorCount": sum(1 for a in annos if a.get("severity") == "error"),
         "improveCount": sum(1 for a in annos if a.get("severity") == "improve"),
+        "annotations": [
+            {k: a.get(k, "") for k in ("text", "comment", "band", "severity", "suggestion")}
+            for a in annos
+        ],
     }
     LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
     with open(LOG_FILE, "a", encoding="utf-8") as f:

@@ -42,9 +42,9 @@ tr:hover{background:var(--bg)}
 
 <div class="card">
   <h2>高频问题</h2>
-  <p style="color:var(--muted);font-size:13px;margin-bottom:12px">按错误关键词归类，出现次数越多越优先复习</p>
+  <p style="color:var(--muted);font-size:13px;margin-bottom:12px">按雅思评分维度归类错误批注，次数越多越优先复习</p>
   <table id="error-table">
-    <thead><tr><th>关键词</th><th>分类</th><th>次数</th><th>涉及题目</th></tr></thead>
+    <thead><tr><th>维度</th><th>次数</th><th>涉及题目</th><th>近期示例</th></tr></thead>
     <tbody></tbody>
   </table>
 </div>
@@ -64,7 +64,8 @@ function init(){
   if(!DATA.history.length){
     document.body.innerHTML='<div class="empty">暂无批改记录</div>';return;
   }
-  renderStats();renderChart();renderHistory();renderErrors();
+  // chart last — a CDN/Chart.js failure must not kill the tables
+  renderStats();renderHistory();renderErrors();renderChart();
 }
 function renderStats(){
   const h=DATA.history;const latest=h[h.length-1];const b=latest.band;
@@ -80,7 +81,17 @@ function renderStats(){
   ];
   document.getElementById('stats').innerHTML=items.map(i=>`<div class="stat-card"><div class="num">${i.num}</div><div class="label">${i.label}</div></div>`).join('');
 }
+function chartFallback(msg){
+  const p=document.createElement('p');
+  p.style.cssText='color:var(--muted);font-size:13px;padding:20px 0';
+  p.textContent=msg;
+  document.getElementById('chart').replaceWith(p);
+}
 function renderChart(){
+  if(typeof Chart==='undefined'){
+    chartFallback('📊 图表组件（Chart.js CDN）未能加载 —— 离线或网络受限时，分数趋势以下方「历次批改」表格为准。');
+    return;
+  }
   const labels=DATA.history.map(h=>h.ts.split('T')[0]);
   const datasets=[
     {key:'overall',label:'Overall',color:'#3b82f6'},
@@ -93,10 +104,14 @@ function renderChart(){
     data:DATA.history.map(h=>h.band[d.key]||null),
     tension:0.3,pointRadius:4,pointHoverRadius:6,borderWidth:2,fill:false
   }));
-  new Chart(document.getElementById('chart'),{type:'line',data:{labels,datasets},options:{
-    responsive:true,scales:{y:{min:0,max:9,ticks:{stepSize:1}}},
-    plugins:{legend:{position:'bottom'}}
-  }});
+  try{
+    new Chart(document.getElementById('chart'),{type:'line',data:{labels,datasets},options:{
+      responsive:true,scales:{y:{min:0,max:9,ticks:{stepSize:1}}},
+      plugins:{legend:{position:'bottom'}}
+    }});
+  }catch(e){
+    chartFallback('📊 图表渲染失败：'+e.message);
+  }
 }
 function renderHistory(){
   const tbody=document.querySelector('#history-table tbody');
@@ -112,13 +127,15 @@ function renderHistory(){
   }).join('');
 }
 function renderErrors(){
-  if(!DATA.errorGroups.length){return;}
+  if(!DATA.errorGroups.length){
+    document.getElementById('error-table').closest('.card').style.display='none';return;
+  }
   const tbody=document.querySelector('#error-table tbody');
   tbody.innerHTML=DATA.errorGroups.map(g=>`<tr>
-    <td>${esc(g.keyword)}</td>
-    <td>${esc(g.category)}</td>
-    <td><b>${g.count}</b></td>
+    <td><b>${esc(g.category)}</b></td>
+    <td><span class="tag tag-error">${g.count}</span></td>
     <td>${g.slugs.map(s=>`<span class="tag tag-improve">${esc(s)}</span>`).join(' ')}</td>
+    <td style="max-width:340px">${g.comments.map(c=>`<div style="font-size:12px;color:var(--muted);margin:2px 0">· ${esc(c)}</div>`).join('')}</td>
   </tr>`).join('');
 }
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}

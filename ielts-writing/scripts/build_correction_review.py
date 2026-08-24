@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """
-Build correction review HTML from all *-correction.html files and corrections-log.jsonl.
-Generates a summary page with band-score trends and high-frequency error analysis.
+Build correction review HTML: band-score trends + error analysis by IELTS dimension.
+
+Primary data source is corrections-log.jsonl (appended by build_correction.py,
+contains scores AND annotations). *-correction.html files are only scanned as a
+fallback for corrections built before logging existed — their timeline entry
+uses the file's mtime, which stays stable across rebuilds of this page.
 """
-import json, re, sys, glob
+import json, re, sys, glob, argparse
 from pathlib import Path
 from datetime import datetime
 
@@ -12,61 +16,46 @@ TEMPLATE = SKILL_DIR / "templates" / "review-corrections.html"
 DEFAULT_DIR = Path.home() / "Desktop" / "IELTS Writing"
 LOG_FILE = Path.home() / "Documents" / "ielts-writing" / "corrections-log.jsonl"
 
-# Error-classification keywords (order matters — first match wins)
-ERROR_KEYWORDS = [
-    ("grammar", "语法", [
-        "tense", "subject-verb", "agreement", "article", "dangling modifier",
-        "run-on", "comma splice", "fragments", "parallel", "pronoun",
-        "passive", "word order", "missing", "incorrect", "tense shift",
-        "grammar", "grammatical",
-    ]),
-    ("vocabulary", "词汇", [
-        "collocation", "wrong word", "inappropriate", "vague", "repetitive",
-        "awkward", "informal", "register", "precise", "lexical",
-        "vocabulary", "word choice", "repetition",
-    ]),
-    ("structure", "结构", [
-        "coherence", "cohesion", "paragraph", "topic sentence", "support",
-        "logical", "development", "off-topic", "task response", "relevance",
-        "structure", "organization",
-    ]),
-    ("expression", "搭配/表达", [
-        "idiom", "phrasal verb", "collocation", "unnatural", "chinese english",
-        "translation", "make", "do", "take", "give",
-    ]),
+# Errors are grouped by the annotation's IELTS band dimension. Comments are
+# mostly Chinese, so keyword matching on comment text does not work — and the
+# band field (TA/CC/LR/GRA) is exactly the categorisation an IELTS learner wants.
+BAND_CATEGORIES = [
+    ("GRA", "语法 (GRA)"),
+    ("LR", "词汇 (LR)"),
+    ("CC", "结构与衔接 (CC)"),
+    ("TA", "任务回应 (TA)"),
 ]
 
 
-def classify_error(comment):
-    """Classify an error annotation into a category based on keyword matching."""
-    lower = (comment or "").lower()
-    for cat_id, cat_name, keywords in ERROR_KEYWORDS:
-        for kw in keywords:
-            if kw in lower:
-                return cat_id, cat_name
-    return "other", "其他"
+def category_for(band):
+    for code, name in BAND_CATEGORIES:
+        if (band or "").strip().upper() == code:
+            return name
+    return "其他"
 
 
 def extract_correction_data(html_text):
-    """Extract CORRECTION_DATA JSON from a correction HTML file."""
+    """Extract CORRECTION_DATA JSON from a correction HTML file (legacy fallback).
+
+    Greedy match anchored on the statement that follows the assignment, so a
+    `};` occurring inside a string can't truncate the JSON; non-greedy pass as
+    a second chance. json.loads is the final validator.
+    """
     m = re.search(
         r'const CORRECTION_DATA\s*=\s*(\{.*\});\s*\n\s*(?:function|const|var|let)',
         html_text, re.DOTALL)
     if not m:
-        m = re.search(
-            r'const CORRECTION_DATA\s*=\s*(\{.*?\});',
-            html_text, re.DOTALL)
+        m = re.search(r'const CORRECTION_DATA\s*=\s*(\{.*?\});', html_text, re.DOTALL)
     if not m:
         return None
-    raw = m.group(1).replace('<\\/', '</')
     try:
-        return json.loads(raw)
+        return json.loads(m.group(1).replace('<\\/', '</'))
     except json.JSONDecodeError:
         return None
 
 
 def load_log():
-    """Load band-score history from corrections-log.jsonl."""
+    """Load correction records from corrections-log.jsonl."""
     if not LOG_FILE.exists():
         return []
     records = []
@@ -79,96 +68,81 @@ def load_log():
     return records
 
 
+def normalize_record(rec):
+    """Unify a log record or an HTML-extracted correction into one shape."""
+    annos = rec.get("annotations", [])
+    return {
+        "ts": rec.get("ts", ""),
+        "slug": rec.get("slug") or rec.get("id", ""),
+        "topic": rec.get("topic", ""),
+        "band": rec.get("band", {}),
+        "errorCount": sum(1 for a in annos if a.get("severity") == "error"),
+        "improveCount": sum(1 for a in annos if a.get("severity") == "improve"),
+        "annotations": annos,
+    }
+
+
+def group_errors(history):
+    """Group error annotations by IELTS band dimension, count + sample comments."""
+    groups = {}
+    for rec in history:
+        for a in rec["annotations"]:
+            if a.get("severity") != "error":
+                continue
+            cat = category_for(a.get("band", ""))
+            g = groups.setdefault(
+                cat, {"category": cat, "count": 0, "slugs": [], "comments": []})
+            g["count"] += 1
+            if rec["slug"] not in g["slugs"]:
+                g["slugs"].append(rec["slug"])
+            if a.get("comment") and len(g["comments"]) < 3:
+                g["comments"].append(a["comment"])
+    return sorted(groups.values(), key=lambda g: -g["count"])
+
+
 def build_review(correction_dir=DEFAULT_DIR, output=None):
     correction_dir = Path(correction_dir)
-    # 1. Collect correction data from HTML files
-    files = sorted(glob.glob(str(correction_dir / "*-correction.html")))
-    if not files:
-        print(f"No *-correction.html files found in {correction_dir}")
-        sys.exit(1)
 
-    print(f"Found {len(files)} correction file(s):")
-    corrections = []
-    all_errors = []  # {keyword, category, slug, comment}
-
-    for fpath in files:
-        html = Path(fpath).read_text("utf-8")
-        data = extract_correction_data(html)
-        if not data:
-            print(f"  SKIP (no data): {Path(fpath).name}")
-            continue
-
-        slug = data.get("id", Path(fpath).stem)
-        topic = data.get("topic", "")
-        band = data.get("band", {})
-        annotations = data.get("annotations", [])
-        print(f"  ✓ {topic or slug} (overall={band.get('overall', '?')}, "
-              f"{len(annotations)} annotations)")
-
-        corrections.append({
-            "slug": slug,
-            "topic": topic,
-            "band": band,
-            "annotations": annotations,
-        })
-
-        for a in annotations:
-            if a.get("severity") == "error":
-                cat_id, cat_name = classify_error(a.get("comment", ""))
-                # Extract a keyword from the comment (first few words)
-                comment = a.get("comment", "")
-                keyword = _extract_keyword(comment, cat_id)
-                all_errors.append({
-                    "keyword": keyword,
-                    "category": cat_name,
-                    "slug": topic or slug,
-                    "comment": comment,
-                })
-
-    # 2. Load log for time-series band scores
-    log_records = load_log()
-    # Merge: log has timestamps, corrections have richer data.
-    # Use log as the time-series source, match by slug.
-    logged_slugs = set()
+    # 1. History from the log — the durable source (one entry per correction build).
     history = []
-    for rec in log_records:
-        slug = rec.get("slug", "")
-        logged_slugs.add(slug)
-        # Find matching correction for topic name
-        matching = next((c for c in corrections if c["slug"] == slug), None)
-        history.append({
-            "ts": rec.get("ts", ""),
-            "slug": slug,
-            "topic": rec.get("topic") or (matching["topic"] if matching else ""),
-            "band": rec.get("band", {}),
-            "errorCount": rec.get("errorCount", 0),
-            "improveCount": rec.get("improveCount", 0),
-        })
+    logged_slugs = set()
+    for rec in load_log():
+        if not rec.get("slug"):
+            continue
+        logged_slugs.add(rec["slug"])
+        history.append(normalize_record(rec))
 
-    # Supplement with corrections that have no log entry (generated before logging was added)
-    for c in corrections:
-        if c["slug"] not in logged_slugs:
-            history.append({
-                "ts": datetime.now().isoformat(timespec="seconds"),
-                "slug": c["slug"],
-                "topic": c["topic"],
-                "band": c["band"],
-                "errorCount": sum(1 for a in c["annotations"] if a.get("severity") == "error"),
-                "improveCount": sum(1 for a in c["annotations"] if a.get("severity") == "improve"),
-            })
+    # 2. Legacy fallback: correction HTMLs built before logging existed.
+    #    mtime is the best available timestamp — and unlike datetime.now(),
+    #    it doesn't drift forward on every rebuild of this page.
+    for fpath in sorted(glob.glob(str(correction_dir / "*-correction.html"))):
+        data = extract_correction_data(Path(fpath).read_text("utf-8"))
+        if not data or not data.get("id") or data["id"] in logged_slugs:
+            continue
+        rec = normalize_record(data)
+        rec["ts"] = datetime.fromtimestamp(
+            Path(fpath).stat().st_mtime).isoformat(timespec="seconds")
+        print(f"  ⚠ {Path(fpath).name}: 无 log 记录，按文件修改时间 {rec['ts']} 收录")
+        history.append(rec)
 
-    # 3. Aggregate error groups
-    error_groups = _group_errors(all_errors)
+    if not history:
+        sys.exit(f"❌ 没有可用的批改记录（log: {LOG_FILE}；目录: {correction_dir}）")
 
-    # 4. Build review data
+    # 3. Chronological order — the template reads the last entry as “最新”.
+    history.sort(key=lambda r: r["ts"])
+
+    # 4. Error analysis + slim history for embedding (drop annotations —
+    #    the page only needs scores/counts; keeps the file small).
     review_data = {
-        "history": history,
-        "errorGroups": error_groups,
-        "correctionCount": len(corrections),
+        "history": [
+            {k: r[k] for k in ("ts", "slug", "topic", "band", "errorCount", "improveCount")}
+            for r in history
+        ],
+        "errorGroups": group_errors(history),
+        "correctionCount": len(history),
         "generated": datetime.now().strftime("%Y-%m-%d %H:%M"),
     }
 
-    # 5. Fill template
     template = TEMPLATE.read_text("utf-8")
     data_json = json.dumps(review_data, ensure_ascii=False).replace("</", "<\\/")
     html_output = template.replace("{{REVIEW_DATA_JSON}}", data_json)
@@ -178,44 +152,16 @@ def build_review(correction_dir=DEFAULT_DIR, output=None):
         output = str(correction_dir / "review-corrections.html")
     Path(output).write_text(html_output, "utf-8")
 
-    print(f"\n✓ Review page: {output}")
-    print(f"  Corrections: {len(corrections)}")
-    print(f"  History records: {len(history)}")
-    print(f"  Error groups: {len(error_groups)}")
-
-
-def _extract_keyword(comment, category):
-    """Extract a short keyword from an error comment for grouping."""
-    if not comment:
-        return "unknown"
-    # Try to get the main issue (usually before the first period or colon)
-    for sep in [".", "，", "：", ":"]:
-        if sep in comment:
-            comment = comment.split(sep)[0]
-    # Take first ~30 chars
-    keyword = comment.strip()[:30]
-    if len(comment.strip()) > 30:
-        keyword += "…"
-    return keyword
-
-
-def _group_errors(errors):
-    """Group errors by keyword, count occurrences, collect slugs."""
-    groups = {}
-    for e in errors:
-        kw = e["keyword"]
-        if kw not in groups:
-            groups[kw] = {"keyword": kw, "category": e["category"], "count": 0, "slugs": [], "comments": []}
-        groups[kw]["count"] += 1
-        if e["slug"] not in groups[kw]["slugs"]:
-            groups[kw]["slugs"].append(e["slug"])
-        if len(groups[kw]["comments"]) < 2:
-            groups[kw]["comments"].append(e["comment"])
-    # Sort by count descending
-    return sorted(groups.values(), key=lambda g: -g["count"])
+    print(f"\n✓ 汇总页: {output}")
+    print(f"  批改记录: {len(history)} 条")
+    print(f"  问题分组: {len(review_data['errorGroups'])} 组")
 
 
 if __name__ == "__main__":
-    correction_dir = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_DIR
-    output = sys.argv[2] if len(sys.argv) > 2 else None
-    build_review(correction_dir, output)
+    ap = argparse.ArgumentParser(
+        description="生成雅思批改进度汇总页（log 为主数据源，HTML 兜底）")
+    ap.add_argument("--dir", default=str(DEFAULT_DIR),
+                    help="批改 HTML 所在目录（仅用于兜底扫描无 log 的旧文件）")
+    ap.add_argument("--out", default=None, help="输出 HTML 路径")
+    args = ap.parse_args()
+    build_review(args.dir, args.out)

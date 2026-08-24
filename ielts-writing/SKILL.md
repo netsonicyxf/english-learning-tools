@@ -170,16 +170,17 @@ python3 "<skill>/scripts/build_correction.py" --data-file /tmp/ielts-<slug>-corr
 「重写」按钮 → 打开 `templates/writer.html` 并带 `#topic=...&task=...` → 全新写作页 + 计时 → 提交粘贴回对话框 → 再批改。如此循环。
 
 ### 批改进度汇总（可选）
-多次批改后，可生成汇总页查看分数趋势与高频问题：
+多次批改后，可生成汇总页查看分数趋势与薄弱维度：
 ```bash
 python3 "<skill>/scripts/build_correction_review.py"
 ```
-- 扫描 `~/Desktop/IELTS Writing/*-correction.html`，提取批改数据
-- 读取 `~/Documents/ielts-writing/corrections-log.jsonl`（每次批改自动追加）获取时间线
+- 数据源是 `~/Documents/ielts-writing/corrections-log.jsonl`（每次批改由 build_correction.py 自动追加，含批注明细）——log 是数据，HTML 是渲染产物，不要从批改页反解数据
+- 兜底：log 功能上线前生成的旧批改页会被扫描收录，时间线取文件修改时间
 - 输出 `~/Desktop/IELTS Writing/review-corrections.html`：
-  - Chart.js 折线图：Overall / TA / CC / LR / GRA 随时间变化
-  - 高频问题统计：所有 error 批注按关键词归类，显示出现次数与涉及题目
-  - 历次批改记录表格
+  - 分数折线图（Overall / TA / CC / LR / GRA；Chart.js 走 CDN，离线时自动降级，数据以下方表格为准）
+  - 高频问题统计：error 批注按雅思评分维度归类（GRA 语法 / LR 词汇 / CC 结构衔接 / TA 任务回应）
+  - 历次批改记录表格（按时间排序）
+- 可选参数：`--dir` 指定批改页目录（兜底扫描用）、`--out` 指定输出路径
 
 ---
 
@@ -197,11 +198,11 @@ python3 "<skill>/scripts/build_correction_review.py"
 ## 脚本一览
 - `build_reader.py`：范文 → 阅读页（入口 1）。顺带在同目录建 `my-library.html`（若不存在）。
 - `build_writer.py`：题目 → 写作页 + 倒计时（入口 2a）。
-- `build_correction.py`：批改数据 → 批改页；同时在输出目录放一份 `writer.html` 供「重写」跳转。
+- `build_correction.py`：批改数据 → 批改页；同时在输出目录放一份 `writer.html` 供「重写」跳转，并追加完整记录到 `corrections-log.jsonl`。
 - `manage_library.py`：`--print` 读库（批改前取建议）｜`--data-file` 入库｜`--init` 建空库。
 - `build_library_view.py`：库 → `my-library.html` 浏览页，`--out` 可指定路径。
 - `validate_data.py`：`--kind reader|correction` 生成前校验（批注是否在对应段落、分数是否 0-9）。
-- `build_correction_review.py`：扫描所有批改页 → 生成进度汇总（分数折线图 + 高频问题统计）。
+- `build_correction_review.py`：读批改 log（旧 HTML 兜底，`--dir`/`--out` 可选）→ 生成进度汇总（分数折线图 + 按评分维度的问题统计）。
 
 ## 参考文件
 - `references/ielts-criteria.md`：雅思写作四项评分标准与常见薄弱点清单（批改时对照）。
