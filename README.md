@@ -44,6 +44,16 @@ git clone https://github.com/wanziwan666-crypto/english-learning-tools.git \
 
 三个 skill 保持 `english-learning-tools/<skill>/` 的兄弟布局 —— `import_review_vocab.py` 靠相对路径找 `vocab-drill/vocab.mjs`，必须整套安装这个桥才通。
 
+## 更新
+
+已 clone 的用户在仓库目录跑一句即可（也可以让 agent 代跑）：
+
+```bash
+git pull
+```
+
+clone 过旧仓库名 `english-reading-skills` 的同样直接 pull —— GitHub 会对旧地址自动重定向，无需改 remote。通过 Download ZIP 或手动复制安装的是静态快照，更新需重新下载覆盖。
+
 ## 共享架构
 
 三个 skill 由同一套模式构成：
