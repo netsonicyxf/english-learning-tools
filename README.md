@@ -38,7 +38,7 @@
 整套 clone（或复制）到你的 Agent skills 目录：
 
 ```bash
-git clone https://github.com/wanziwan666-crypto/english-reading-skills.git \
+git clone https://github.com/wanziwan666-crypto/english-learning-tools.git \
   ~/.agents/skills/english-learning-tools
 ```
 
