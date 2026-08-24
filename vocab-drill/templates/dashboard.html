@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>词汇进度</title>
+<style>
+:root {
+  --navy: #173b78; --navy-deep: #102b5a; --coral: #ff655d; --sky: #45c7e9;
+  --sun: #ffd43b; --leaf: #49bd68; --cream: #fff4d8; --white: #fffaf0;
+  --ink: #17345f; --muted: #6d6a61;
+  --display: "Arial Rounded MT Bold","Avenir Next","PingFang SC",sans-serif;
+  --serif: "Iowan Old Style","Baskerville","Songti SC","STSong",serif;
+  --sans: "Avenir Next","SF Pro Display","PingFang SC","Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;color:var(--ink);background:var(--cream);font-family:var(--sans);max-width:760px;margin:0 auto;padding:24px 18px 60px;position:relative}
+.grain{position:fixed;z-index:20;inset:0;pointer-events:none;opacity:.10;mix-blend-mode:multiply;
+  background-image:radial-gradient(rgba(23,59,120,.32) .55px,transparent .7px),radial-gradient(rgba(255,101,93,.24) .5px,transparent .75px);
+  background-position:0 0,7px 9px;background-size:11px 11px,15px 15px}
+.shape{position:fixed;z-index:0;opacity:.14;pointer-events:none}
+.shape-coral{width:190px;height:140px;top:-55px;left:-45px;background:var(--coral);clip-path:polygon(13% 0,100% 12%,88% 92%,0 100%);transform:rotate(-11deg)}
+.shape-yellow{width:120px;height:100px;right:-28px;bottom:22%;background:var(--sun);clip-path:polygon(15% 0,100% 16%,80% 100%,0 78%);transform:rotate(9deg)}
+
+h1{margin:6px 0 2px;color:var(--navy);font-family:var(--display);font-size:clamp(32px,5vw,46px);font-weight:900;letter-spacing:-.03em}
+h1 em{font-style:normal;color:var(--coral);font-family:var(--serif);display:inline-block;transform:rotate(-2deg)}
+.sub{color:var(--muted);font-size:13px;margin-bottom:24px}
+
+.stat-grid{position:relative;z-index:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:14px;margin-bottom:24px}
+.stat{border:2.5px solid var(--navy);border-radius:16px 20px 14px 18px;padding:16px 8px;text-align:center;background:var(--white);box-shadow:5px 6px 0 rgba(23,59,120,.85)}
+.stat:nth-child(1){transform:rotate(-1deg)}
+.stat:nth-child(2){transform:rotate(.8deg);background:#ffe9e6}
+.stat:nth-child(3){transform:rotate(-.6deg);background:#d6ecff}
+.stat:nth-child(4){transform:rotate(1deg)}
+.stat:nth-child(5){transform:rotate(-.9deg);background:#e2f6e8}
+.stat .num{font-size:30px;font-weight:900;color:var(--navy);font-family:var(--display)}
+.stat .lbl{color:var(--muted);font-size:11.5px;margin-top:4px;font-weight:700}
+
+.warn{position:relative;z-index:1;background:#fff1d6;border:2.5px solid var(--coral);border-radius:16px 20px 14px 18px;padding:16px 20px;margin-bottom:24px;box-shadow:6px 7px 0 rgba(255,101,93,.55);transform:rotate(-.4deg)}
+.warn h3{margin:0 0 8px;font-size:14.5px;color:#b3372c;font-family:var(--display);font-weight:800}
+.warn .w-row{font-size:13.5px;color:var(--ink);padding:5px 0;border-bottom:1.5px dashed rgba(179,55,44,.25)}
+.warn .w-row:last-child{border:none}
+.warn-none{position:relative;z-index:1;background:#e2f6e8;border:2.5px solid #1e7a3c;border-radius:16px 20px 14px 18px;padding:14px;margin-bottom:24px;font-size:13.5px;color:#166031;font-weight:700;transform:rotate(.3deg)}
+
+table{position:relative;z-index:1;width:100%;border-collapse:separate;border-spacing:0;background:var(--white);border:2.5px solid var(--navy);border-radius:14px 18px 12px 16px;overflow:hidden;font-size:13px;box-shadow:7px 8px 0 rgba(23,59,120,.85)}
+th,td{padding:10px 12px;text-align:left;border-bottom:1.5px dashed rgba(23,52,95,.18)}
+th{background:var(--navy);color:var(--cream);font-weight:800;font-size:12.5px}
+tr:last-child td{border-bottom:none}
+tbody tr:nth-child(even){background:rgba(255,244,216,.5)}
+td:first-child{font-family:var(--serif);font-weight:700;color:var(--navy)}
+.mastered{color:#1e7a3c;font-weight:800}
+.overdue{color:#b3372c;font-weight:800}
+.empty{position:relative;z-index:1;background:var(--white);border:2.5px dashed var(--navy);border-radius:16px 20px 14px 18px;padding:34px;text-align:center;color:var(--muted);font-size:14.5px}
+</style>
+</head>
+<body>
+
+<div class="grain"></div>
+<div class="shape shape-coral"></div>
+<div class="shape shape-yellow"></div>
+
+<script id="app-data" type="application/json">{{DATA_JSON}}</script>
+
+<h1>词汇<em>进度</em></h1>
+<div class="sub" id="sub"></div>
+
+<div class="stat-grid" id="stats"></div>
+
+<div id="warnArea"></div>
+
+<div id="tableArea"></div>
+
+<script>
+(function () {
+  var data;
+  try { data = JSON.parse(document.getElementById('app-data').textContent); }
+  catch (e) { document.body.innerHTML = '<p>数据损坏，无法解析。</p>'; return; }
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  var st = data.stats || {};
+  document.getElementById('sub').textContent =
+    'student: ' + (data.student || 'default') + ' ｜ 数据截至 ' + (data.date || '') + ' ｜ 由 vocab-drill --render 生成，只读展示';
+
+  // 统计卡
+  var statDefs = [
+    ['total', '词库总数', ''],
+    ['due_review', '到期复习', '#b3372c'],
+    ['due_fresh', '新词待首测', '#1c5da8'],
+    ['learning', '学习中期', ''],
+    ['mastered', '已掌握（≥21天）', '#1e7a3c']
+  ];
+  var grid = document.getElementById('stats');
+  statDefs.forEach(function (d) {
+    var el = document.createElement('div');
+    el.className = 'stat';
+    el.innerHTML = '<div class="num" style="' + (d[2] ? 'color:' + d[2] : '') + '">' + (st[d[0]] == null ? 0 : st[d[0]]) + '</div><div class="lbl">' + d[1] + '</div>';
+    grid.appendChild(el);
+  });
+
+  // 反复栽的词
+  var warnArea = document.getElementById('warnArea');
+  var hl = (data.high_lapse || []).slice().sort(function (a, b) { return b.lapses - a.lapses; });
+  if (hl.length) {
+    var w = document.createElement('div');
+    w.className = 'warn';
+    var html = '<h3>⚠️ 反复栽的词（栽满 3 次建议换例句锚点）</h3>';
+    hl.forEach(function (x) {
+      html += '<div class="w-row"><b>' + esc(x.word) + '</b> — 栽了 ' + x.lapses + ' 次。上次例句可能不够扎眼，试试重造一个。</div>';
+    });
+    w.innerHTML = html;
+    warnArea.appendChild(w);
+  } else {
+    warnArea.innerHTML = '<div class="warn-none">✅ 没有反复栽的词。</div>';
+  }
+
+  // 词表
+  var rows = data.words || [];
+  var tableArea = document.getElementById('tableArea');
+  if (!rows.length) {
+    tableArea.innerHTML = '<div class="empty">词库为空。先通过对话学几个词吧。</div>';
+    return;
+  }
+  var html = '<table><tr><th>词</th><th>间隔</th><th>reps</th><th>ef</th><th>到期日</th><th>状态</th><th>卡</th></tr>';
+  rows.forEach(function (r) {
+    var stCls = '';
+    var stTxt = r.status;
+    if (r.mastered) { stCls = 'mastered'; stTxt = '✓ 已掌握'; }
+    else if (r.overdue) { stCls = 'overdue'; }
+    html += '<tr>' +
+      '<td>' + esc(r.word) + '</td>' +
+      '<td>' + (r.interval >= 365 ? '365天（封顶）' : r.interval + '天') + '</td>' +
+      '<td>' + r.reps + '</td>' +
+      '<td>' + r.ef.toFixed(2) + '</td>' +
+      '<td>' + esc(r.due) + '</td>' +
+      '<td class="' + stCls + '">' + esc(stTxt) + '</td>' +
+      '<td>' + (r.card ? '✓' : '—') + '</td>' +
+    '</tr>';
+  });
+  // html 已以 <table> 开头，只补收尾——再包一层会渲染出嵌套 table
+  tableArea.innerHTML = html + '</table>';
+})();
+</script>
+</body>
+</html>
