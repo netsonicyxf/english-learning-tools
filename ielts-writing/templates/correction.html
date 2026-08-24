@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IELTS 批改</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--navy:#173b78;--coral:#ff655d;--sun:#ffd43b;--leaf:#49bd68;--cream:#fff4d8;--white:#fffaf0;--ink:#17345f;--muted:#6d6a61}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',sans-serif;background:var(--cream);color:var(--ink);line-height:1.6}
+.top-bar{display:flex;justify-content:space-between;align-items:center;padding:14px 24px;background:var(--navy);position:sticky;top:0;z-index:100;box-shadow:0 4px 0 rgba(23,59,120,.35)}
+.top-bar h1{font-size:17px;font-weight:800;color:var(--cream)}
+.controls{display:flex;gap:10px}
+.btn{padding:8px 18px;border-radius:9px 12px 8px 11px;border:2px solid var(--navy);font-size:14px;cursor:pointer;font-weight:700;background:var(--white);color:var(--navy)}
+.btn-primary{background:var(--leaf);color:#fff;border-color:var(--navy);box-shadow:3px 3px 0 var(--navy)}
+.btn-primary:hover{transform:translate(-2px,-2px);box-shadow:5px 5px 0 var(--coral)}
+.layout{display:flex;gap:20px;padding:20px;max-width:1200px;margin:0 auto;align-items:flex-start}
+.essay-col{flex:1;min-width:0}
+.anno-col{width:380px;flex-shrink:0;position:sticky;top:80px;max-height:calc(100vh - 100px);overflow-y:auto}
+.band-card{background:var(--white);border:2.5px solid var(--navy);border-radius:16px 22px 14px 20px;padding:16px 20px;box-shadow:6px 7px 0 rgba(23,59,120,.8);margin-bottom:16px}
+.band-overall{font-size:34px;font-weight:800;color:var(--navy);font-family:Georgia,serif}
+.band-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
+.band-item{text-align:center;background:var(--cream);border-radius:10px;padding:8px 4px;border:1.5px dashed rgba(23,59,120,.35)}
+.band-item .k{font-size:11px;color:var(--muted);font-weight:700}
+.band-item .v{font-size:18px;font-weight:800;color:var(--navy)}
+.summary{margin-top:12px;font-size:14px;color:#2d3748;line-height:1.7}
+.essay-area{background:var(--white);border:2.5px solid var(--navy);border-radius:16px 22px 14px 20px;padding:24px 30px;box-shadow:6px 7px 0 rgba(23,59,120,.8);font-family:Georgia,'Times New Roman',serif}
+.essay-area p{font-size:16px;line-height:1.9;margin-bottom:16px;color:#2d3748}
+.essay-area p:first-child::before{content:'¶ ';color:#cbd5e1}
+.mk-error{background:#ffe3e3;border-bottom:2px solid #e03131;padding:0 2px;border-radius:3px;cursor:pointer}
+.mk-improve{background:#fff3bf;border-bottom:2px solid #f08c00;padding:0 2px;border-radius:3px;cursor:pointer}
+.mk-good{background:#d3f9d8;border-bottom:2px solid #2f9e44;padding:0 2px;border-radius:3px;cursor:pointer}
+.mk-lib{box-shadow:inset 0 -3px 0 var(--navy)}
+.anno-panel{background:var(--white);border:2.5px solid var(--navy);border-radius:16px 22px 14px 20px;padding:14px 16px;box-shadow:6px 7px 0 rgba(23,59,120,.8)}
+.anno-panel h2{font-size:15px;font-weight:700;color:var(--navy);margin-bottom:12px}
+.anno-group{margin-bottom:14px}
+.anno-group-title{font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;border-bottom:1px dashed #e5e7eb;padding-bottom:3px}
+.anno{border-radius:10px;padding:10px 12px;margin-bottom:8px;border:1.5px solid #e5e7eb;background:var(--cream);cursor:pointer;transition:all .15s}
+.anno:hover{transform:translate(-1px,-1px);box-shadow:2px 2px 0 var(--navy)}
+.anno.sev-error{border-left:4px solid #e03131}
+.anno.sev-improve{border-left:4px solid #f08c00}
+.anno.sev-good{border-left:4px solid #2f9e44}
+.anno-head{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.badge{font-size:10px;font-weight:800;padding:1px 7px;border-radius:8px;background:#d6ecff;color:var(--navy)}
+.sev-dot{width:9px;height:9px;border-radius:50%}
+.sev-dot.error{background:#e03131}.sev-dot.improve{background:#f08c00}.sev-dot.good{background:#2f9e44}
+.anno-quote{font-size:13px;font-family:Georgia,serif;color:#1a1a2e;margin-bottom:4px}
+.anno-comment{font-size:13px;color:#344054;line-height:1.6}
+.anno-sugg{display:inline-block;margin-top:6px;font-size:12px;font-weight:700;color:#fff;background:var(--navy);padding:2px 9px;border-radius:8px}
+.anno-sugg.lib::before{content:'★ 来自你的库 · '}
+.anno-empty{color:var(--muted);font-size:13px;text-align:center;padding:20px}
+.tooltip{display:none;position:fixed;background:#1a1a2e;color:#fff;border-radius:10px;padding:12px 16px;box-shadow:0 8px 24px rgba(0,0,0,.25);z-index:1000;max-width:340px;font-size:13px;line-height:1.6}
+@media(max-width:900px){.layout{flex-direction:column}.anno-col{width:100%;position:static;max-height:none}}
+</style>
+</head>
+<body>
+<header class="top-bar">
+  <h1>雅思作文批改</h1>
+  <div class="controls">
+    <button class="btn btn-primary" id="rewrite-btn">重写</button>
+  </div>
+</header>
+<div class="layout">
+  <div class="essay-col">
+    <div class="band-card">
+      <div style="display:flex;align-items:baseline;gap:10px">
+        <span class="band-overall" id="overall">6.5</span>
+        <span style="color:var(--muted);font-size:13px" id="band-sub"></span>
+      </div>
+      <div class="band-grid" id="band-grid"></div>
+      <div class="summary" id="summary"></div>
+    </div>
+    <div class="essay-area" id="essay-area"></div>
+  </div>
+  <aside class="anno-col">
+    <div class="anno-panel">
+      <h2>批注（点击定位）</h2>
+      <div id="anno-list"></div>
+    </div>
+  </aside>
+</div>
+<div class="tooltip" id="tooltip"></div>
+<script>
+const CORRECTION_DATA = {{CORRECTION_DATA_JSON}};
+const $overall=document.getElementById('overall');
+const $bandSub=document.getElementById('band-sub');
+const $bandGrid=document.getElementById('band-grid');
+const $summary=document.getElementById('summary');
+const $essayArea=document.getElementById('essay-area');
+const $annoList=document.getElementById('anno-list');
+const $tooltip=document.getElementById('tooltip');
+// single shared list: renderEssay marks _located, renderAnnotations reads it
+const ANNOS=(CORRECTION_DATA.annotations||[]).map((a,i)=>Object.assign({_id:'a'+i,_located:false},a));
+
+function init(){
+  document.title='批改: '+(CORRECTION_DATA.topic||'作文').substring(0,30);
+  renderBands();
+  renderEssay();
+  renderAnnotations();
+  bind();
+}
+function renderBands(){
+  const b=CORRECTION_DATA.band||{};
+  $overall.textContent=b.overall!=null?b.overall:'—';
+  const taskLabel=CORRECTION_DATA.task==='task1'?'Task 1':'Task 2';
+  $bandSub.textContent=taskLabel+(CORRECTION_DATA.topic?' · '+truncate(CORRECTION_DATA.topic,24):'');
+  const keys=[['ta','TA'],['cc','CC'],['lr','LR'],['gra','GRA']];
+  $bandGrid.innerHTML=keys.map(([k,label])=>'<div class="band-item"><div class="k">'+label+'</div><div class="v">'+(b[k]!=null?b[k]:'—')+'</div></div>').join('');
+  $summary.textContent=CORRECTION_DATA.summary||'';
+}
+function splitParas(){ return (CORRECTION_DATA.essay||'').split(/\n\s*\n/).map(s=>s.trim()).filter(Boolean); }
+function isOverlap(a,b){ return a.start<b.end && b.start<a.end; }
+function buildMarks(para, annos){
+  const marks=[];
+  const sorted=annos.slice().sort((x,y)=>y.text.length-x.text.length);
+  for(const a of sorted){
+    if(!a.text) continue;
+    let idx=para.toLowerCase().indexOf(a.text.toLowerCase());
+    let guard=0;
+    while(idx!==-1 && guard++<50){
+      const cand={start:idx,end:idx+a.text.length,id:a._id,severity:a.severity,suggestion:a.suggestion};
+      if(!marks.some(m=>isOverlap(m,cand))){ marks.push(cand); break; }
+      idx=para.toLowerCase().indexOf(a.text.toLowerCase(),idx+a.text.length);
+    }
+  }
+  return marks.sort((x,y)=>x.start-y.start);
+}
+function renderEssay(){
+  const paras=splitParas();
+  const byId={}; ANNOS.forEach(a=>byId[a._id]=a);
+  $essayArea.innerHTML=paras.map((para,pi)=>{
+    const target=ANNOS.filter(a=>a.paragraph===pi);
+    const marks=buildMarks(para,target);
+    let html='',cursor=0;
+    marks.forEach(m=>{
+      if(m.start>cursor) html+=esc(para.substring(cursor,m.start));
+      const cls='mk-'+(m.severity||'improve')+(m.suggestion?' mk-lib':'');
+      html+='<span class="'+cls+'" data-anno="'+m.id+'">'+esc(para.substring(m.start,m.end))+'</span>';
+      if(byId[m.id]) byId[m.id]._located=true;
+      cursor=m.end;
+    });
+    if(cursor<para.length) html+=esc(para.substring(cursor));
+    return '<p>'+html+'</p>';
+  }).join('');
+  $essayArea.querySelectorAll('[data-anno]').forEach(el=>{
+    el.addEventListener('mouseenter',e=>showTip(e,el.dataset.anno));
+    el.addEventListener('mouseleave',()=>$tooltip.style.display='none');
+    el.addEventListener('click',()=>flash(el.dataset.anno));
+  });
+}
+function renderAnnotations(){
+  const paras=splitParas();
+  let html='';
+  paras.forEach((para,pi)=>{
+    // only located ones here; unlocated get their own group below
+    const list=ANNOS.filter(a=>a.paragraph===pi && a._located);
+    if(!list.length) return;
+    html+='<div class="anno-group"><div class="anno-group-title">第 '+(pi+1)+' 段</div>';
+    list.forEach(a=>html+=annoCard(a));
+    html+='</div>';
+  });
+  const un=ANNOS.filter(a=>!a._located);
+  if(un.length){
+    html+='<div class="anno-group"><div class="anno-group-title">未定位批注</div>';
+    un.forEach(a=>html+=annoCard(a,true));
+    html+='</div>';
+  }
+  $annoList.innerHTML=html||'<div class="anno-empty">没有批注</div>';
+  $annoList.querySelectorAll('.anno').forEach(el=>el.addEventListener('click',()=>flash(el.dataset.anno)));
+}
+function annoCard(a,unlocated){
+  const sev=a.severity||'improve';
+  const sugg=a.suggestion?'<span class="anno-sugg lib">'+(a.suggestion)+'</span>':'';
+  return '<div class="anno sev-'+sev+'" data-anno="'+a._id+'">'+
+    '<div class="anno-head"><span class="sev-dot '+sev+'"></span>'+
+    (a.band?'<span class="badge">'+a.band+'</span>':'')+
+    (a.level?'<span class="badge">'+a.level+'</span>':'')+'</div>'+
+    (a.text?'<div class="anno-quote">'+esc(a.text)+(unlocated?' ⚠未定位':'')+'</div>':'')+
+    (a.comment?'<div class="anno-comment">'+esc(a.comment)+'</div>':'')+
+    sugg+'</div>';
+}
+function flash(id){
+  const el=document.querySelector('[data-anno="'+id+'"]');
+  if(el){ el.scrollIntoView({behavior:'smooth',block:'center'}); el.style.transition='background .3s'; const old=el.style.background; el.style.background='#ffd43b'; setTimeout(()=>el.style.background=old,700); }
+}
+function showTip(e,id){
+  const a=ANNOS.find(x=>x._id===id);
+  if(!a) return;
+  $tooltip.innerHTML='<b>'+(a.band||'')+' · '+(a.level||'')+'</b><br>'+esc(a.comment||'')+(a.suggestion?'<br><br>★ 建议替换为（来自你的库）：<b>'+esc(a.suggestion)+'</b>':'');
+  $tooltip.style.display='block'; $tooltip.style.left='0px'; $tooltip.style.top='0px';
+  requestAnimationFrame(()=>{ const r=$tooltip.getBoundingClientRect(); let x=e.clientX+12,y=e.clientY-r.height-12; if(x+r.width>innerWidth-10)x=innerWidth-r.width-10; if(y<10)y=e.clientY+24; if(x<10)x=10; $tooltip.style.left=x+'px'; $tooltip.style.top=y+'px'; });
+}
+function bind(){
+  document.getElementById('rewrite-btn').addEventListener('click',()=>{
+    const topic=encodeURIComponent(CORRECTION_DATA.topic||'');
+    const task=CORRECTION_DATA.task||'task2';
+    location.href='./writer.html#topic='+topic+'&task='+task;
+  });
+}
+function truncate(s,n){ return s&&s.length>n?s.substring(0,n)+'…':s; }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+init();
+</script>
+</body>
+</html>

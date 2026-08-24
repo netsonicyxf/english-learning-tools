@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IELTS 写作</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--navy:#173b78;--coral:#ff655d;--sun:#ffd43b;--leaf:#49bd68;--cream:#fff4d8;--white:#fffaf0;--ink:#17345f;--muted:#6d6a61}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',sans-serif;background:var(--cream);color:var(--ink);line-height:1.6}
+.top-bar{display:flex;justify-content:space-between;align-items:center;padding:14px 24px;background:var(--navy);position:sticky;top:0;z-index:100;box-shadow:0 4px 0 rgba(23,59,120,.35)}
+.title-area{flex:1;min-width:0;color:var(--cream)}
+.article-title{font-size:16px;font-weight:800}
+.article-meta{font-size:12px;color:rgba(255,244,216,.75);margin-top:2px}
+.controls{display:flex;gap:10px;align-items:center;flex-shrink:0}
+.btn{padding:8px 18px;border-radius:9px 12px 8px 11px;border:2px solid var(--navy);font-size:14px;cursor:pointer;font-weight:700;background:var(--white);color:var(--navy)}
+.btn:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 var(--navy)}
+.btn-primary{background:var(--navy);color:var(--cream);box-shadow:3px 3px 0 var(--sun)}
+.timer-box{display:flex;align-items:center;gap:8px;background:var(--white);border:2.5px solid var(--navy);border-radius:14px;padding:10px 18px;max-width:1000px;margin:18px auto 0;font-family:Georgia,serif}
+.timer-label{font-size:13px;color:var(--muted);font-family:-apple-system,sans-serif}
+.timer{font-size:26px;font-weight:800;color:var(--navy);font-variant-numeric:tabular-nums}
+.timer.warn{color:#e8590c}
+.timer.danger{color:#e03131;animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.5}}
+.timer-btns{margin-left:auto;display:flex;gap:8px}
+.timer-btns button{padding:5px 12px;font-size:12px;border:1.5px solid var(--navy);border-radius:8px;background:var(--cream);cursor:pointer;font-weight:700;color:var(--navy)}
+.wrap{max-width:1000px;margin:16px auto;padding:0 18px}
+.topic-card{background:var(--white);border:2.5px solid var(--navy);border-radius:18px 24px 16px 22px;padding:20px 26px;box-shadow:6px 7px 0 rgba(23,59,120,.8);margin-bottom:16px}
+.topic-tag{display:inline-block;font-size:12px;font-weight:700;color:var(--navy);background:#d6ecff;padding:3px 10px;border-radius:10px;margin-bottom:8px}
+.topic-text{font-size:17px;font-weight:600;color:#1a1a2e;line-height:1.7}
+.editor{border:2.5px solid var(--navy);border-radius:18px 24px 16px 22px;background:var(--white);box-shadow:6px 7px 0 rgba(23,59,120,.8);overflow:hidden}
+.editor-bar{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:var(--sun);border-bottom:2px solid var(--navy);font-size:13px;color:var(--ink);font-weight:600}
+#essay{width:100%;min-height:420px;border:none;outline:none;padding:20px 24px;font-family:Georgia,'Times New Roman',serif;font-size:16px;line-height:1.9;color:#2d3748;resize:vertical}
+.submit-row{display:flex;justify-content:center;gap:12px;margin:18px 0 40px}
+.btn-submit{background:var(--leaf);color:#fff;border-color:var(--navy);box-shadow:3px 3px 0 var(--navy);padding:12px 32px;font-size:16px}
+.btn-submit:hover{transform:translate(-2px,-2px);box-shadow:5px 5px 0 var(--coral)}
+.hint{font-size:12px;color:var(--muted);text-align:center;margin-bottom:30px}
+</style>
+</head>
+<body>
+<header class="top-bar">
+  <div class="title-area">
+    <div class="article-title">雅思写作练习</div>
+    <div class="article-meta" id="meta"></div>
+  </div>
+  <div class="controls">
+    <button class="btn" id="clear-btn">清空</button>
+  </div>
+</header>
+<div class="timer-box">
+  <span class="timer-label">剩余时间</span>
+  <span class="timer" id="timer">45:00</span>
+  <div class="timer-btns">
+    <button id="pause-btn">暂停</button>
+    <button id="reset-btn">重置</button>
+  </div>
+</div>
+<div class="wrap">
+  <div class="topic-card">
+    <span class="topic-tag" id="task-tag">Task 2</span>
+    <div class="topic-text" id="topic"></div>
+  </div>
+  <div class="editor">
+    <div class="editor-bar"><span>在此写作（建议 250+ 词 / Task 2）</span><span id="stat">0 词 · 0 段</span></div>
+    <textarea id="essay" placeholder="开始写你的作文…写完后点下方「提交」，会自动复制到剪贴板，再粘贴回对话框即可批改。"></textarea>
+  </div>
+  <div class="submit-row">
+    <button class="btn btn-submit" id="submit-btn">提交（复制作文）</button>
+  </div>
+  <div class="hint">提交后会复制整篇作文到剪贴板，请粘贴到对话窗口交给 agent 批改。</div>
+</div>
+<script>
+const WRITER_DATA = Object.assign(
+  {id:'ielts', topic:'（未提供题目）', task:'task2', minutes:45},
+  {{WRITER_DATA_JSON}},
+  parseHash()
+);
+function parseHash(){
+  const h=location.hash.replace(/^#/,'');
+  if(!h) return {};
+  const p=new URLSearchParams(h);
+  const out={};
+  // URLSearchParams already percent-decodes; decoding again breaks topics
+  // containing a literal % (e.g. "50% of people") with URIError.
+  if(p.get('topic')) out.topic=p.get('topic');
+  if(p.get('task')) out.task=p.get('task');
+  if(p.get('minutes')) out.minutes=parseInt(p.get('minutes'))||45;
+  return out;
+}
+const $topic=document.getElementById('topic');
+const $taskTag=document.getElementById('task-tag');
+const $meta=document.getElementById('meta');
+const $essay=document.getElementById('essay');
+const $timer=document.getElementById('timer');
+const $stat=document.getElementById('stat');
+const $pauseBtn=document.getElementById('pause-btn');
+
+document.title='写作: '+(WRITER_DATA.topic||'').substring(0,30);
+$topic.textContent=WRITER_DATA.topic;
+$taskTag.textContent=WRITER_DATA.task==='task1'?'Task 1':'Task 2';
+$meta.textContent='题目已载入 · 倒计时 '+WRITER_DATA.minutes+' 分钟';
+
+let total=WRITER_DATA.minutes*60;
+let left=total; let running=true; let iv=null;
+function fmt(s){ const m=Math.floor(s/60), ss=s%60; return String(m).padStart(2,'0')+':'+String(ss).padStart(2,'0'); }
+function paint(){
+  $timer.textContent=fmt(left);
+  $timer.classList.toggle('warn', left<=300 && left>60);
+  $timer.classList.toggle('danger', left<=60);
+}
+function tick(){
+  if(!running) return;
+  left=Math.max(0,left-1); paint();
+  if(left===0){ running=false; clearInterval(iv); alert('时间到！可直接提交，或点「重置」再练。'); }
+}
+function start(){ clearInterval(iv); iv=setInterval(tick,1000); }
+paint(); start();
+
+$essay.addEventListener('input',()=>{
+  const t=$essay.value.trim();
+  const words=t?t.split(/\s+/).length:0;
+  const paras=t?t.split(/\n\s*\n/).filter(Boolean).length:0;
+  $stat.textContent=words+' 词 · '+paras+' 段';
+});
+$pauseBtn.addEventListener('click',()=>{ running=!running; $pauseBtn.textContent=running?'暂停':'继续'; if(running)start(); });
+document.getElementById('reset-btn').addEventListener('click',()=>{ left=total; running=true; $pauseBtn.textContent='暂停'; paint(); start(); });
+document.getElementById('clear-btn').addEventListener('click',()=>{ if(confirm('清空当前作文？')){ $essay.value=''; $stat.textContent='0 词 · 0 段'; } });
+document.getElementById('submit-btn').addEventListener('click',()=>{
+  const essay=$essay.value.trim();
+  if(!essay){ alert('作文为空'); return; }
+  const block='[IELTS 作文]\ntopic: '+(WRITER_DATA.topic||'')+'\ntask: '+WRITER_DATA.task+'\nessay:\n'+essay+'\n[/IELTS 作文]';
+  navigator.clipboard.writeText(block).then(ok=>{
+    alert('已复制作文到剪贴板（'+essay.split(/\s+/).length+' 词）。\n请粘贴回对话框交给 agent 批改。');
+  }).catch(()=>{
+    const ta=document.createElement('textarea'); ta.value=block; document.body.appendChild(ta); ta.select();
+    try{document.execCommand('copy'); alert('已复制，请粘贴回对话框。');}catch(e){ alert('复制失败，请手动复制：\n\n'+block); }
+    document.body.removeChild(ta);
+  });
+});
+</script>
+</body>
+</html>

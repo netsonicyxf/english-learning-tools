@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>雅思批改进度汇总</title>
+<style>
+:root{--bg:#fafafa;--card:#fff;--text:#1a1a1a;--muted:#888;--accent:#3b82f6;--border:#e5e5e5;--error:#ef4444;--improve:#f59e0b;--green:#22c55e}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;padding:20px;max-width:960px;margin:0 auto}
+h1{font-size:22px;margin-bottom:4px}
+.subtitle{color:var(--muted);font-size:13px;margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px}
+.card h2{font-size:16px;margin-bottom:12px}
+.stats-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.stat-card{background:var(--bg);border-radius:8px;padding:12px 16px;min-width:120px;flex:1}
+.stat-card .num{font-size:28px;font-weight:700}
+.stat-card .label{font-size:12px;color:var(--muted)}
+canvas{width:100%!important}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--border)}
+th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase}
+tr:hover{background:var(--bg)}
+.tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:4px;font-weight:600}
+.tag-error{background:#fef2f2;color:var(--error)}
+.tag-improve{background:#fffbeb;color:var(--improve)}
+.link{color:var(--accent);text-decoration:none}
+.link:hover{text-decoration:underline}
+.empty{text-align:center;padding:40px;color:var(--muted)}
+</style>
+</head>
+<body>
+<h1>雅思批改进度汇总</h1>
+<p class="subtitle">Generated: {{TIMESTAMP}}</p>
+
+<div class="stats-row" id="stats"></div>
+
+<div class="card">
+  <h2>分数趋势</h2>
+  <canvas id="chart" height="260"></canvas>
+</div>
+
+<div class="card">
+  <h2>高频问题</h2>
+  <p style="color:var(--muted);font-size:13px;margin-bottom:12px">按错误关键词归类，出现次数越多越优先复习</p>
+  <table id="error-table">
+    <thead><tr><th>关键词</th><th>分类</th><th>次数</th><th>涉及题目</th></tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h2>历次批改</h2>
+  <table id="history-table">
+    <thead><tr><th>日期</th><th>题目</th><th>Overall</th><th>TA</th><th>CC</th><th>LR</th><th>GRA</th><th>问题</th></tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script>
+const DATA={{REVIEW_DATA_JSON}};
+function init(){
+  if(!DATA.history.length){
+    document.body.innerHTML='<div class="empty">暂无批改记录</div>';return;
+  }
+  renderStats();renderChart();renderHistory();renderErrors();
+}
+function renderStats(){
+  const h=DATA.history;const latest=h[h.length-1];const b=latest.band;
+  const avg=k=>{const vals=h.map(x=>x.band[k]).filter(Boolean);return vals.length?(vals.reduce((a,c)=>a+c,0)/vals.length).toFixed(1):'—'};
+  const improve=h.reduce((a,c)=>a+(c.improveCount||0),0);
+  const errors=h.reduce((a,c)=>a+(c.errorCount||0),0);
+  const items=[
+    {num:latest.band.overall||'—',label:'最新 Overall'},
+    {num:avg('overall'),label:'平均 Overall'},
+    {num:h.length,label:'批改次数'},
+    {num:improve,label:'总批注(可改进)'},
+    {num:errors,label:'总批注(错误)'},
+  ];
+  document.getElementById('stats').innerHTML=items.map(i=>`<div class="stat-card"><div class="num">${i.num}</div><div class="label">${i.label}</div></div>`).join('');
+}
+function renderChart(){
+  const labels=DATA.history.map(h=>h.ts.split('T')[0]);
+  const datasets=[
+    {key:'overall',label:'Overall',color:'#3b82f6'},
+    {key:'ta',label:'TA',color:'#ef4444'},
+    {key:'cc',label:'CC',color:'#22c55e'},
+    {key:'lr',label:'LR',color:'#f59e0b'},
+    {key:'gra',label:'GRA',color:'#a855f7'},
+  ].map(d=>({
+    label:d.label,borderColor:d.color,backgroundColor:d.color+'33',
+    data:DATA.history.map(h=>h.band[d.key]||null),
+    tension:0.3,pointRadius:4,pointHoverRadius:6,borderWidth:2,fill:false
+  }));
+  new Chart(document.getElementById('chart'),{type:'line',data:{labels,datasets},options:{
+    responsive:true,scales:{y:{min:0,max:9,ticks:{stepSize:1}}},
+    plugins:{legend:{position:'bottom'}}
+  }});
+}
+function renderHistory(){
+  const tbody=document.querySelector('#history-table tbody');
+  tbody.innerHTML=DATA.history.map(h=>{
+    const b=h.band;
+    return `<tr>
+      <td>${h.ts.split('T')[0]}</td>
+      <td>${esc(h.topic||h.slug)}</td>
+      <td><b>${b.overall||'—'}</b></td>
+      <td>${b.ta||'—'}</td><td>${b.cc||'—'}</td><td>${b.lr||'—'}</td><td>${b.gra||'—'}</td>
+      <td><span class="tag tag-error">${h.errorCount||0}</span></td>
+    </tr>`;
+  }).join('');
+}
+function renderErrors(){
+  if(!DATA.errorGroups.length){return;}
+  const tbody=document.querySelector('#error-table tbody');
+  tbody.innerHTML=DATA.errorGroups.map(g=>`<tr>
+    <td>${esc(g.keyword)}</td>
+    <td>${esc(g.category)}</td>
+    <td><b>${g.count}</b></td>
+    <td>${g.slugs.map(s=>`<span class="tag tag-improve">${esc(s)}</span>`).join(' ')}</td>
+  </tr>`).join('');
+}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+init();
+</script>
+</body>
+</html>
