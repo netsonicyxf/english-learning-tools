@@ -1,10 +1,10 @@
 # English Reading Skills
 
-两个 AI Agent Skill，把任何英文文章变成互动阅读练习，并提供跨文章复习。
+一个 AI Agent Skill（双入口），把任何英文文章变成互动阅读练习，并提供跨文章复习。
 
-## Skills
+## 入口
 
-### english-reading-exercises
+### 入口 1：生成阅读练习
 
 输入一篇英文文章（URL 或文本），生成交互式阅读网页（单文件 HTML，浏览器打开即用）。
 
@@ -23,38 +23,40 @@
 | 概念关系图 | 提取核心概念构建关系图，空白节点下拉选择 |
 | 背诵段落 | 语音播放、隐藏原文自测、导出文本、自定义段落 |
 
-**文件：**
-- `SKILL.md` — Skill 说明（Agent 读取）
-- `template.html` — 交互网页模板（含 `{{ARTICLE_DATA_JSON}}` 占位符）
+### 入口 2：汇总复习
 
-### english-reading-review
-
-扫描目录下所有 `*-reading.html` 文件，提取词汇和句型，生成统一复习页面。
+扫描目录下所有 `*-reading.html` 文件（入口 1 的产出），提取词汇和句型，生成统一复习页面。
 
 **三大功能：**
 - 总览面板：已读文章数、累计生词数、句型数，文章列表可跳转原文
 - 单词卡片（Anki 式）：词汇来自阅读时划词添加的单词（localStorage），三档自评
 - 句型运用：所有文章句型集中展示，跨文章练习
 
-**文件：**
-- `SKILL.md` — Skill 说明
-- `build_review.py` — 构建脚本（扫描文件、提取数据、生成 review-all.html）
-- `template.html` — 复习页面模板
+**可选桥接**：复习词汇可一键送进兄弟 skill [vocab-drill](../vocab-drill/)（SM2 间隔重复调度），`import_review_vocab.py` 全走其 `vocab.mjs` 官方命令。
+
+## 文件
+
+- `SKILL.md` — Skill 说明（Agent 读取，双入口工作流）
+- `template.html` — 阅读练习页模板（入口 1，含 `{{ARTICLE_DATA_JSON}}` 占位符）
+- `review-template.html` — 复习页模板（入口 2，含 `{{REVIEW_DATA_JSON}}` 占位符）
+- `validate_data.py` — 数据校验（句型/重排/背诵必须在原文中逐字存在等）
+- `build_review.py` — 复习页构建脚本（扫描文件、提取数据、生成 review-all.html）
+- `import_review_vocab.py` — 复习词灌进 vocab-drill 的桥接脚本
 
 ## 使用方式
 
 ### 前置条件
 
 - 一个已配置 LLM API Key 的 Agent（如 Claude Desktop、opencode 等）
-- Python 3（复习页面构建脚本用）
+- Python 3（校验与复习构建脚本用）
 - 浏览器
 
 ### 安装
 
-将两个目录复制到你的 Agent skills 目录：
+将本目录复制到你的 Agent skills 目录（vocab-drill 桥接功能需将其与 `vocab-drill/` 作为同级目录安装）：
 
 ```bash
-cp -r english-reading-exercises english-reading-review ~/.workbuddy/skills/
+cp -r english-reading-exercises ~/.workbuddy/skills/
 ```
 
 ### 生成阅读练习
@@ -74,7 +76,7 @@ Agent 会分析文章、生成练习数据，输出一个 `*-reading.html` 到�
 Agent 运行构建脚本，扫描目录下所有 `*-reading.html`，生成 `review-all.html`。
 
 ```bash
-python3 ~/.workbuddy/skills/english-reading-review/build_review.py
+python3 ~/.workbuddy/skills/english-reading-exercises/build_review.py
 ```
 
 ## 技术细节
@@ -83,4 +85,4 @@ python3 ~/.workbuddy/skills/english-reading-review/build_review.py
 - **划词翻译**：需要联网（调用翻译 API）；本地词典预先翻译非基础词汇，优先查本地
 - **数据存储**：单词本和自定义背诵段落存在浏览器 localStorage 中
 - **语音播放**：使用浏览器内置 Web Speech API
-- **模板替换**：Agent 分析文章后生成 JSON 数据，替换 `template.html` 中的 `{{ARTICLE_DATA_JSON}}` 占位符
+- **模板替换**：Agent 分析文章后生成 JSON 数据，替换模板中的占位符（阅读页 `{{ARTICLE_DATA_JSON}}`，复习页由 `build_review.py` 注入 `{{REVIEW_DATA_JSON}}`）

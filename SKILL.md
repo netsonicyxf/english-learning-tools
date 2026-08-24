@@ -1,15 +1,23 @@
 ---
+name: english-reading-exercises
 title: "English Reading Exercises"
-description: "上传英文文章链接或文本，自动生成交互式阅读网页。划词即译、自动记录单词本，阅读后生成六种练习：单词释义（三题型交叉）、句型改写、全文摘要完形、句子重排、概念关系图、背诵段落。"
+description: "英文阅读学习闭环，两个入口：(1) 生成练习：上传英文文章链接或文本，自动生成交互式阅读网页。划词即译、自动记录单词本，阅读后生成六种练习（单词释义三题型、句型改写、全文摘要完形、句子重排、概念关系图、背诵段落）。(2) 汇总复习：扫描已生成的 *-reading.html 文件，汇总词汇和句型，生成统一复习页面——Anki 式单词翻卡、句型运用练习、跨文章词汇重叠分析，并可一键送进 vocab-drill 做间隔重复。当用户说「阅读练习」「英文阅读」「reading exercises」「文章练习」「interactive reading」「划词翻译」「单词本」「完形填空」「概念图」，或「复习」「review」「总结学过的文章」「复习单词」「复习句型」时触发。"
 read_when:
   - User provides an English article URL or text and wants to learn from it
   - User says "阅读练习", "英文阅读", "reading exercises", "文章练习", "interactive reading"
   - User says "阅读练习" or "练练阅读" without providing a link — should auto-fetch from Notion database
   - User wants to create exercises based on an English article
   - User mentions "划词翻译", "单词本", "完形填空", "概念图" related to English articles
+  - User says "复习", "review", "总结学过的文章", "复习单词", "复习句型"
+  - User has multiple *-reading.html files and wants to review them together
+  - User wants to see vocabulary overlap across articles
 ---
 
-# English Reading Exercises
+# English Reading Exercises（生成 + 复习）
+
+一条学习闭环，两个入口：**入口 1** 把一篇英文长文变成交互式练习页（`*-reading.html`），
+**入口 2** 把这些练习页汇总成统一复习页，并可桥接到 vocab-drill 间隔重复。
+两个入口共享同一批 `*-reading.html` 文件——入口 1 是生产者，入口 2 是消费者。
 
 ## 前置条件
 
@@ -18,7 +26,15 @@ read_when:
 - **Python 3**：推荐用 Python 脚本生成 HTML（避免 JSON 转义错误）。手动拼接也可但容易出错。
 - **浏览器**：生成的 HTML 在浏览器中打开即可使用。划词翻译优先查本地词典，查不到时走 Google Translate 免费接口（无需 API Key，但可能受网络限制）。
 
-## Overview
+## 入口判定
+
+- 用户给文章（URL / 粘贴文本），或说「阅读练习」「练练阅读」但没给文章 → **入口 1**（无文章时从 Notion 自动拉取）。
+- 用户说「复习」「review」「总结学过的文章」「复习单词/句型」，或想看跨文章词汇重叠 → **入口 2**。
+- 两个入口可在同一对话内先后发生（先读新文章，再复习旧的）。
+
+---
+
+# 入口 1：生成阅读练习页
 
 将一篇英文长文转化为**交互式学习网页**（单个 HTML 文件）。核心体验：
 
@@ -98,7 +114,7 @@ curl -s 'https://www.notion.so/api/v3/queryCollection' \
    - 语言：`properties["\\R\`H"][0][0]`
    - 类型：`properties.awgs[0][0]`
    - 标签：`properties["G\\_R"]` 所有元素的 `[0]` 拼接
-   
+
    注意：block 值有**双重嵌套**：`block[bid].value.value.properties`（不是 `block[bid].value.properties`）。
 
 4. Python 侧按日期降序排列，展示**最新 10 篇**给用户选择。格式：`序号 | 日期 | 标题（前 60 字）`。说「最近更新这几篇，看看有哪个想练的？」。如果用户想选更早的，再展示更多。
@@ -326,58 +342,17 @@ curl -s 'https://www.notion.so/api/v3/loadPageChunk' \
 }
 ```
 
+建议把组装好的 JSON 写入临时文件（如 `/tmp/article-data.json`），后续校验和注入都走文件，避免长 JSON 走 shell 参数的转义问题。
+
 ### Step 5.5: 校验数据（必须执行）
 
-组装 JSON 后、注入模板前，**必须运行以下 Python 校验**。不通过则返回 Step 4 重新生成对应部分：
+组装 JSON 后、注入模板前，**必须运行**（不通过则返回 Step 4 重新生成对应部分）：
 
-```python
-import json
-
-def validate(article_data):
-    content = article_data["content"]
-    exercises = article_data["exercises"]
-    errors = []
-
-    # 1. 句型源句必须在原文中逐字存在
-    for i, p in enumerate(exercises.get("sentencePatterns", [])):
-        if p["source"] not in content:
-            errors.append(f"句型{i+1}的source不在原文中: {p['source'][:60]}...")
-
-    # 2. 句子重排的每个句子必须在原文中
-    for gi, group in enumerate(exercises.get("sentenceReorder", [])):
-        for si, s in enumerate(group["sentences"]):
-            if s["text"] not in content:
-                errors.append(f"重排组{gi+1}句子{si+1}不在原文中: {s['text'][:60]}...")
-
-    # 3. 背诵段落的每段必须在原文中
-    for pi, passage in enumerate(exercises.get("recitation", {}).get("passages", [])):
-        if passage["text"] not in content:
-            errors.append(f"背诵段落{pi+1}不在原文中: {passage['text'][:60]}...")
-
-    # 4. 句型题目：正确选项不能引入input中没有的信息
-    for i, p in enumerate(exercises.get("sentencePatterns", [])):
-        for j, q in enumerate(p.get("questions", [])):
-            correct = q["options"][q["answer"]]
-            # 提取input中的数字
-            import re
-            input_nums = set(re.findall(r'\d[\d,.]*', q["input"]))
-            answer_nums = set(re.findall(r'\d[\d,.]*', correct))
-            new_nums = answer_nums - input_nums
-            if new_nums:
-                errors.append(f"句型{i+1}Q{j+1}: 正确选项引入了input中没有的数字 {new_nums}")
-
-    if errors:
-        print("❌ 校验失败:")
-        for e in errors:
-            print(f"  - {e}")
-        return False
-    print("✅ 校验通过")
-    return True
-
-# 使用: validate(article_data)
+```bash
+python3 <本 skill 安装目录>/validate_data.py /tmp/article-data.json
 ```
 
-**如果校验失败**，哪部分报错就重做哪部分（回到 Step 4），重做后再次校验，通过后才能进入 Step 6。
+脚本校验四项：句型 `source` / 重排句 `text` / 背诵段落 `text` 必须在原文 `content` 中逐字存在；句型题正确选项不得引入 `input` 中没有的数字。历史上两次出 bug 都是因为 LLM 编造了不在原文中的句子、或正确选项引入了新信息——校验不通过不许保存。
 
 ### Step 6: 填入模板
 
@@ -393,8 +368,8 @@ template = (SKILL_DIR / "template.html").read_text("utf-8")
 # ensure_ascii=False 保留中文；替换 </ 防止 content 里出现 </script> 提前关闭标签
 data_json = json.dumps(article_data, ensure_ascii=False).replace("</", "<\\/")  # article_data 是组装好的字典
 html = template.replace("{{ARTICLE_DATA_JSON}}", data_json)
-slug = article_data["id"]  # 用文章 slug 命名，与 Step 7 一致
-out = Path.home() / "Desktop/English Learning" / f"{slug}-reading.html"
+slug = article_data["id"]  # 用文章 slug 命名，与入口 2 的扫描模式一致
+out = Path.home() / "Desktop" / "English Learning" / f"{slug}-reading.html"
 out.parent.mkdir(parents=True, exist_ok=True)
 out.write_text(html, "utf-8")  # 注意 () 包裹：/ 优先级低于 . ，否则会对 str 调 write_text 报错
 ```
@@ -405,7 +380,61 @@ out.write_text(html, "utf-8")  # 注意 () 包裹：/ 优先级低于 . ，否�
 
 用 present_files 展示生成的 HTML 文件，简要说明功能。
 
-## Important Notes
+---
+
+# 入口 2：汇总复习
+
+将多篇阅读练习（`*-reading.html`）汇总为一个**统一复习页面**。核心体验：
+
+1. **总览面板** — 已读文章数、累计生词数、跨文章重复词数、句型数
+2. **单词卡片** — Anki 式翻卡，认识/模糊/不认识三档自评，不认识的词优先再出现
+3. **句型运用** — 所有文章的句型结构集中展示，每题用新句子练习（非原文）
+4. **词汇 & 句型重叠** — 哪些词在多篇文章重复出现、各文章词汇量对比
+
+数据来源：直接扫描 `*-reading.html` 文件，提取其中的 `ARTICLE_DATA` JSON。零依赖，离线可用，不需要额外的学习记录或数据库。
+
+## 前置条件（入口 2 特有）
+
+- **阅读文件**：需要至少一个由入口 1 生成的 `*-reading.html` 文件。
+- **文件位置**：所有阅读文件必须在**同一目录**中（默认 `~/Desktop/English Learning/`）。复习页面也生成到该目录，文章链接为相对路径，必须同目录才能点击跳转。
+- **文件命名**：必须匹配 `*-reading.html` 模式（如 `sunshine-policy-reading.html`），否则扫描不到。
+
+## Workflow
+
+一条命令完成扫描、提取、汇总、生成：
+
+```bash
+python3 <本 skill 安装目录>/build_review.py [目录] [输出路径]
+```
+
+脚本自动完成：扫描目录下的 `*-reading.html` → 正则提取每个文件里的 `ARTICLE_DATA` JSON → 汇总词典（`masterVocab`，跨文章去重、记录出现于哪些文章）与句型库（`allPatterns`，标注来源文章）→ 从 `content` 为每个词提取例句 → 注入 `review-template.html` 输出 `review-all.html`。macOS 上若目录枚举被 TCC 拦截（如未授权的 ~/Desktop），脚本会自动尝试借 Finder 枚举，只需在弹窗里允许一次。
+
+向后兼容：旧版（无句型数据）的阅读文件也能正常汇总，只是"句型"tab 内容较少。同一词在多篇文章出现时 `count > 1`，这些是最值得优先掌握的核心词。复习进度不持久化——每次打开都是全新一轮（保持简单）。
+
+## 词汇送进 vocab-drill（可选，间隔重复）
+
+vocab-drill 是**独立的兄弟 skill**（与本 skill 同级安装在 `english-learning-tools/` 下），负责真正的 SM2 间隔重复调度。复习页本身不持久化进度——要间隔重复，一键把词灌进去：
+
+构建时同目录会多写一份 `review-vocab.json`：`core` 是跨文章重复词（最值得优先掌握），`all` 是全量，每词带释义、文章原句例句、出现过的文章。
+
+```bash
+python3 <本 skill 安装目录>/import_review_vocab.py           # 全量导入
+python3 <本 skill 安装目录>/import_review_vocab.py --core    # 只导跨文章重复词
+```
+
+脚本行为（全走 vocab.mjs 官方命令，不碰 state 文件）：单次 `--add` 登记（幂等，已在词库的跳过）→ 只给**本次新登记**的词 `--card` 存释义+文章原句例句（**存卡即锚点**，重跑不覆盖已有词卡）→ 重渲染并打开 dashboard。
+
+**词本同步**：复习页优先展示浏览器 localStorage 里用户的划词词本（`mergeWordBank` 会用它替换全量词典，dashboard 有来源提示）。用户读了一段时间新文章后，让他在复习页点「导出词本」——剪贴板得到逗号分隔的词单、同时下载 `wordbank-export.txt`（word/释义/例句 三列，与 reading 页的 wordbank 导出同格式）。然后任选其一同步进 vocab-drill：把 txt 路径喂给 `import_review_vocab.py`（词单模式只登记，词卡留到首测时生成），或直接把剪贴板词单交给 `vocab.mjs --add`。
+
+说明与红线：
+- 导入 = 登记进词库（新词待首测），之后**背哪些、何时背**仍由用户在学习 session 里定（vocab-drill 每批 5-15 个）；想剔除个别词用 `vocab.mjs --remove`。
+- 词表来源是用户读过的文章，视为用户已确认；额外手动挑词时才需要展示增删。
+- 调度数字只从 vocab.mjs 出；不手改 `~/.vocab-drill-state*.json`。
+- 之后的单词记忆复习全走 vocab-drill（开场 `--due` 先清到期词）；复习页仍作随意翻卡浏览用。
+
+---
+
+# Important Notes
 
 - **JSON 转义**：`content` 字段包含 HTML，需要特别注意引号和特殊字符的转义。推荐用脚本（Python `json.dumps`）生成而非手动拼接。
 - **词典质量**：词典是核心功能，必须覆盖面广、释义语境贴合。词典不仅用于划词翻译，还用于单词释义练习的干扰项生成。宁可多收录一些词，也不要遗漏学习者可能不懂的词。
@@ -414,3 +443,12 @@ out.write_text(html, "utf-8")  # 注意 () 包裹：/ 优先级低于 . ，否�
 - **概念图坐标**：只需大致合理即可，力导向布局会自动优化。重点关注概念选择和关系标签的质量，而非坐标精度。
 - **文章内容 HTML**：段落用 `<p>` 标签，保留原文结构。不要用纯文本换行。
 - **Step 5.5 校验不可跳过**：历史上两次出 bug 都是因为 LLM 编造了不在原文中的 `source`/`text`，或题目正确选项引入了输入中没有的信息。校验脚本必须在每次生成后运行，不通过不许保存。
+- **入口 2 依赖入口 1 的产出**：文件命名（`*-reading.html`）、目录（`~/Desktop/English Learning/`）、数据格式（`ARTICLE_DATA` 里的 `dictionary` / `exercises.sentencePatterns`）都是两个入口的契约，改任何一侧都要想到另一侧。
+
+## 文件一览
+
+- `template.html`：阅读练习页模板（入口 1，占位符 `{{ARTICLE_DATA_JSON}}`）。
+- `review-template.html`：复习页模板（入口 2，占位符 `{{REVIEW_DATA_JSON}}`）——注意与上面的阅读模板是两个文件。
+- `validate_data.py`：入口 1 的数据校验（Step 5.5 必跑）。
+- `build_review.py`：入口 2 的扫描汇总构建脚本。
+- `import_review_vocab.py`：复习词灌进 vocab-drill 的桥接脚本（依赖同级的 `vocab-drill/` skill）。

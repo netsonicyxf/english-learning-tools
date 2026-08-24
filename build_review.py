@@ -12,7 +12,7 @@ import subprocess
 from pathlib import Path
 from datetime import datetime
 
-TEMPLATE = Path(__file__).resolve().parent / "template.html"
+TEMPLATE = Path(__file__).resolve().parent / "review-template.html"
 DEFAULT_DIR = str(Path.home() / "Desktop" / "English Learning")
 
 

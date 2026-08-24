@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""一键把 english-reading-review 导出的 review-vocab.json 灌进 vocab-drill 词库。
+"""一键把复习构建（build_review.py）导出的 review-vocab.json 灌进 vocab-drill 词库。
 
 用法:
   python3 import_review_vocab.py                # 全量导入（默认 ~/Desktop/English Learning/review-vocab.json）
@@ -21,7 +21,7 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-VOCAB_MJS = HERE.parent.parent / "vocab-drill" / "vocab.mjs"
+VOCAB_MJS = HERE.parent / "vocab-drill" / "vocab.mjs"
 DEFAULT_JSON = Path.home() / "Desktop" / "English Learning" / "review-vocab.json"
 
 
