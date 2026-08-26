@@ -13,8 +13,8 @@ from datetime import datetime
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
 TEMPLATE = SKILL_DIR / "templates" / "review-corrections.html"
-DEFAULT_DIR = Path.home() / "Desktop" / "IELTS Writing"
-LOG_FILE = Path.home() / "Documents" / "ielts-writing" / "corrections-log.jsonl"
+DEFAULT_DIR = Path.home() / "Desktop" / "English Writing"
+LOG_FILE = Path.home() / "Documents" / "english-writing" / "corrections-log.jsonl"
 
 # Errors are grouped by the annotation's IELTS band dimension. Comments are
 # mostly Chinese, so keyword matching on comment text does not work — and the

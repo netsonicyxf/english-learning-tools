@@ -3,11 +3,11 @@
 import argparse, json
 from pathlib import Path
 
-LIB = Path.home() / "Documents" / "ielts-writing" / "library.json"
-DEFAULT_OUT = Path.home() / "Desktop" / "IELTS Writing" / "my-library.html"
+LIB = Path.home() / "Documents" / "english-writing" / "library.json"
+DEFAULT_OUT = Path.home() / "Desktop" / "English Writing" / "my-library.html"
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--out", help="output HTML path (default: ~/Desktop/IELTS Writing/my-library.html)")
+ap.add_argument("--out", help="output HTML path (default: ~/Desktop/English Writing/my-library.html)")
 args = ap.parse_args()
 OUT = Path(args.out) if args.out else DEFAULT_OUT
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>IELTS 写作</title>
+<title>English Writing</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--navy:#173b78;--coral:#ff655d;--sun:#ffd43b;--leaf:#49bd68;--cream:#fff4d8;--white:#fffaf0;--ink:#17345f;--muted:#6d6a61}
@@ -107,7 +107,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica N
 </div>
 <script>
 const WRITER_DATA = Object.assign(
-  {id:'ielts', topic:'（未提供题目）', task:'task2', minutes:45},
+  {id:'english', topic:'（未提供题目）', task:'task2', minutes:45},
   {{WRITER_DATA_JSON}},
   parseHash()
 );
@@ -152,14 +152,15 @@ function tick(){
 }
 function start(){ clearInterval(iv); iv=setInterval(tick,1000); }
 
-const LS_MIN_KEY='ielts_writer_minutes';
+const LS_MIN_KEY='english_writer_minutes';
+const LS_MIN_KEY_LEGACY='ielts_writer_minutes';   // 旧键兜底读取，倒计时记忆不丢
 const $overlay=document.getElementById('time-overlay');
 const $minInput=document.getElementById('min-input');
 const $modalErr=document.getElementById('modal-err');
 const $timeOk=document.getElementById('time-ok');
 const $timeCancel=document.getElementById('time-cancel');
 let editMode=false, prevLeft=0, prevRunning=false;
-function savedMinutes(){ try{ const v=parseInt(localStorage.getItem(LS_MIN_KEY),10); return (v>0)?v:null; }catch(e){ return null; } }
+function savedMinutes(){ try{ const raw=localStorage.getItem(LS_MIN_KEY)||localStorage.getItem(LS_MIN_KEY_LEGACY); const v=parseInt(raw,10); return (v>0)?v:null; }catch(e){ return null; } }
 function defaultMinutes(){
   if(total) return Math.round(total/60);          // 改时间：预填当前时长
   const s=savedMinutes(); if(s) return s;         // 上次用的
@@ -215,7 +216,7 @@ document.getElementById('clear-btn').addEventListener('click',()=>{ if(confirm('
 document.getElementById('submit-btn').addEventListener('click',()=>{
   const essay=$essay.value.trim();
   if(!essay){ alert('作文为空'); return; }
-  const block='[IELTS 作文]\ntopic: '+(WRITER_DATA.topic||'')+'\ntask: '+WRITER_DATA.task+'\nessay:\n'+essay+'\n[/IELTS 作文]';
+  const block='[English 作文]\ntopic: '+(WRITER_DATA.topic||'')+'\ntask: '+WRITER_DATA.task+'\nessay:\n'+essay+'\n[/English 作文]';
   navigator.clipboard.writeText(block).then(ok=>{
     alert('已复制作文到剪贴板（'+essay.split(/\s+/).length+' 词）。\n请粘贴回对话框交给 agent 批改。');
   }).catch(()=>{

@@ -1,6 +1,6 @@
 # 个人库 schema（library.json）
 
-路径：`~/Documents/ielts-writing/library.json`
+路径：`~/Documents/english-writing/library.json`
 
 ## 结构
 ```json

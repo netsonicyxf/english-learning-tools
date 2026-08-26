@@ -5,7 +5,7 @@ from pathlib import Path
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
 TEMPLATE = SKILL_DIR / "templates" / "reader.html"
-OUT_DIR = Path.home() / "Desktop" / "IELTS Writing"
+OUT_DIR = Path.home() / "Desktop" / "English Writing"
 
 
 def main():

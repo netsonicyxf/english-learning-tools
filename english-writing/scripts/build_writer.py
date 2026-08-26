@@ -5,7 +5,7 @@ from pathlib import Path
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
 TEMPLATE = SKILL_DIR / "templates" / "writer.html"
-OUT_DIR = Path.home() / "Desktop" / "IELTS Writing"
+OUT_DIR = Path.home() / "Desktop" / "English Writing"
 
 
 def main():
@@ -20,7 +20,7 @@ def main():
     else:
         data = json.loads(args.data)
 
-    data.setdefault("id", "ielts")
+    data.setdefault("id", "english")
     data.setdefault("topic", "（未提供题目）")
     data.setdefault("task", "task2")
     data.setdefault("minutes", 45)

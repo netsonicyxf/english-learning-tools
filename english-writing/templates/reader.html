@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>IELTS 范文收录</title>
+<title>English 范文收录</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--navy:#173b78;--coral:#ff655d;--sky:#45c7e9;--sun:#ffd43b;--leaf:#49bd68;--cream:#fff4d8;--white:#fffaf0;--ink:#17345f;--muted:#6d6a61}
@@ -66,7 +66,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica N
 <div class="tooltip" id="tooltip"></div>
 <script>
 const READER_DATA = {{READER_DATA_JSON}};
-const STORAGE_KEY = 'ielts_collect_' + READER_DATA.id;
+const STORAGE_KEY = 'english_collect_' + READER_DATA.id;
+// 旧键迁移（ielts_collect_ → english_collect_）：已有单词本数据不丢
+try{
+  const LEGACY_KEY = 'ielts_collect_' + READER_DATA.id;
+  if(!localStorage.getItem(STORAGE_KEY) && localStorage.getItem(LEGACY_KEY)){
+    localStorage.setItem(STORAGE_KEY, localStorage.getItem(LEGACY_KEY));
+  }
+}catch(e){}
 let wordBank = [];
 const $article = document.getElementById('article-area');
 const $wordList = document.getElementById('word-list');

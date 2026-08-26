@@ -9,8 +9,8 @@ from pathlib import Path
 SKILL_DIR = Path(__file__).resolve().parent.parent
 TEMPLATE = SKILL_DIR / "templates" / "correction.html"
 WRITER_TEMPLATE = SKILL_DIR / "templates" / "writer.html"
-OUT_DIR = Path.home() / "Desktop" / "IELTS Writing"
-LOG_FILE = Path.home() / "Documents" / "ielts-writing" / "corrections-log.jsonl"
+OUT_DIR = Path.home() / "Desktop" / "English Writing"
+LOG_FILE = Path.home() / "Documents" / "english-writing" / "corrections-log.jsonl"
 
 
 def main():

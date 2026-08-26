@@ -11,7 +11,7 @@ Modes:
 import json, sys, argparse, datetime
 from pathlib import Path
 
-LIB = Path.home() / "Documents" / "ielts-writing" / "library.json"
+LIB = Path.home() / "Documents" / "english-writing" / "library.json"
 
 
 def load():
