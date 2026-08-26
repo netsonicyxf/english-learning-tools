@@ -4,15 +4,17 @@
 用法:
   python3 import_review_vocab.py                # 全量导入（默认 ~/Desktop/English Learning/review-vocab.json）
   python3 import_review_vocab.py --core         # 只导跨文章重复词（core）
-  python3 import_review_vocab.py <文件路径>     # review-vocab.json，或纯词单 txt
-                                                 #（复习页导出的 wordbank-export.txt 三列取首列；
-                                                 #  也吃逗号/换行分隔的裸词单——词单模式只登记，
-                                                 #  词卡留到 vocab-drill 首测时生成）
+  python3 import_review_vocab.py <文件路径>     # review-vocab.json，或词单 txt
+                                                 #（wordbank-export.txt 三列：词/释义/文章原句——
+                                                 #  带原句的词直接存卡，原句即记忆锚点，不留给
+                                                 #  首测重造；裸词单只登记，词卡留到首测时生成）
 
 行为（全部走 vocab.mjs 官方命令，不碰 state 文件）:
   1. 单次 --add 登记全部词（已在词库的自动跳过，幂等）
-  2. 只对本次新登记的词 --card 存词卡：释义 + 文章原句例句（存卡即锚点）；
-     重跑不会覆盖已有词卡（包括 agent 后来改写的 quirky 例句）
+  2. 只对本次新登记且**带原句例句**的词 --card 存词卡（review-vocab.json 与
+     wordbank-export.txt 的例句都是文章原句——存卡即锚点，首测/复习都用这句，
+     不重造）；重跑不会覆盖已有词卡（包括 agent 后来改写的例句）。
+     没有例句的词不存卡，留到 vocab-drill 首测时生成
   3. 重渲染 dashboard 并打开
 """
 import json
@@ -44,19 +46,22 @@ def main():
         # review-vocab.json（build 导出）：带释义+例句，登记并存词卡
         data = json.loads(raw)
         entries = data["core"] if core_only else data["all"]
-        have_cards = True
     else:
-        # 纯词单（复习页导出的 wordbank-export.txt 三列取首列，或逗号/换行分隔）：
-        # 只登记，词卡留到 vocab-drill 首批测时按正常流程生成
+        # 词单 txt（wordbank-export.txt 三列：词/释义/文章原句，例句是划词时的原文；
+        # 也吃逗号/换行分隔的裸词单）。三列里带原句的行直接随导入存卡——
+        # 用户要求保留原文例句当锚点，不留给首测重造 quirky 例句
         entries, seen = [], set()
         for ln in raw.splitlines():
-            first_col = ln.strip().split("\t")[0]
-            for w in first_col.split(","):
+            cols = [c.strip() for c in ln.split("\t")]
+            for w in cols[0].split(","):
                 w = w.strip().lower()
-                if w and w not in seen:
-                    seen.add(w)
-                    entries.append({"word": w})
-        have_cards = False
+                if not w or w in seen:
+                    continue
+                seen.add(w)
+                meaning = cols[1] if len(cols) > 1 else ""
+                entries.append({"word": w,
+                                "meaning": "" if meaning == "（待翻译）" else meaning,
+                                "example": cols[2] if len(cols) > 2 else ""})
 
     words = [e["word"].strip().lower() for e in entries if e["word"].strip()]
     print(f"{src}\n{len(words)} 词，开始登记…")
@@ -70,13 +75,14 @@ def main():
 
     n_card = 0
     for i, e in enumerate(entries, 1):
-        if not have_cards:
-            break
         w = e["word"].strip().lower()
         if w not in added:
             continue
+        example = (e.get("example") or "").strip()
+        if not example:
+            continue  # 没有原句可锚定 → 不存半成品卡，留到首测时生成
         card = {"word": w, "meaning": e.get("meaning", ""),
-                "example": e.get("example", "")}
+                "example": example}
         r = run(["--card", w, "--json",
                  json.dumps(card, ensure_ascii=False)])
         if r.returncode:

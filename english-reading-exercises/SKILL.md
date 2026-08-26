@@ -434,7 +434,7 @@ python3 <本 skill 安装目录>/import_review_vocab.py --core    # 只导跨文
 
 脚本行为（全走 vocab.mjs 官方命令，不碰 state 文件）：单次 `--add` 登记（幂等，已在词库的跳过）→ 只给**本次新登记**的词 `--card` 存释义+文章原句例句（**存卡即锚点**，重跑不覆盖已有词卡）→ 重渲染并打开 dashboard。
 
-**词本同步**：复习页优先展示浏览器 localStorage 里用户的划词词本（`mergeWordBank` 会用它替换全量词典，dashboard 有来源提示）。用户读了一段时间新文章后，让他在复习页点「导出词本」——剪贴板得到逗号分隔的词单、同时下载 `wordbank-export.txt`（word/释义/例句 三列，与 reading 页的 wordbank 导出同格式）。然后任选其一同步进 vocab-drill：把 txt 路径喂给 `import_review_vocab.py`（词单模式只登记，词卡留到首测时生成），或直接把剪贴板词单交给 `vocab.mjs --add`。
+**词本同步**：复习页优先展示浏览器 localStorage 里用户的划词词本（`mergeWordBank` 会用它替换全量词典，dashboard 有来源提示）。用户读了一段时间新文章后，让他在复习页点「导出词本」——剪贴板得到逗号分隔的词单、同时下载 `wordbank-export.txt`（word/释义/例句 三列，例句是划词时的**文章原句**）。然后任选其一同步进 vocab-drill：把 txt 路径喂给 `import_review_vocab.py`（三列 txt 会连释义和文章原句一起存卡——原句即记忆锚点，首测/复习都用这句，不重造；裸词单才只登记、词卡留到首测生成），或直接把剪贴板词单交给 `vocab.mjs --add`。
 
 说明与红线：
 - 导入 = 登记进词库（新词待首测），之后**背哪些、何时背**仍由用户在学习 session 里定（vocab-drill 每批 5-15 个）；想剔除个别词用 `vocab.mjs --remove`。
