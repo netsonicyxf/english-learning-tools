@@ -197,8 +197,8 @@ function exportWordBank(){
   a.href = URL.createObjectURL(blob);
   a.download = 'wordbank-'+READER_DATA.id+'.txt';
   a.click(); URL.revokeObjectURL(a.href);
-  copyText(wordBank.map(w=>w.text).join(', ')).then(()=>{
-    alert('已导出 wordbank-'+READER_DATA.id+'.txt，并已把词单复制到剪贴板');
+  copyText(lines.join('\n')).then(()=>{
+    alert('已导出 wordbank-'+READER_DATA.id+'.txt\n剪贴板已是三列格式（词/释义/例句），直接粘贴回对话框即可入库');
   }).catch(()=>{
     alert('已导出 wordbank-'+READER_DATA.id+'.txt');
   });
