@@ -53,7 +53,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica N
   </div>
   <div class="controls">
     <button class="btn" id="lib-btn">词汇库</button>
-    <button class="btn" id="export-btn">导出单词本</button>
   </div>
 </header>
 <main class="reading-view">
@@ -109,7 +108,6 @@ function bindEvents(){
     if(entry) showTooltip(e, entry.text, entry.translation, true);
   });
   document.addEventListener('mousedown', e=>{ if(!$tooltip.contains(e.target)) $tooltip.style.display='none'; });
-  document.getElementById('export-btn').addEventListener('click', exportWordBank);
   document.getElementById('lib-btn').addEventListener('click', function(){ window.open('./my-library.html','_blank'); });
 }
 function handleSelection(e){
@@ -187,21 +185,6 @@ function renderWordBank(){
   $wordList.querySelectorAll('.word-remove').forEach(b=>b.addEventListener('click',e=>{
     wordBank.splice(parseInt(e.currentTarget.dataset.idx),1); saveWordBank(); renderWordBank(); renderArticle();
   }));
-}
-function copyText(t){ return navigator.clipboard.writeText(t).catch(()=>{const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);}); }
-function exportWordBank(){
-  if(!wordBank.length){ alert('单词本为空'); return; }
-  var lines = wordBank.map(w=>w.text+'\t'+w.translation+'\t'+(w.context||''));
-  var blob = new Blob([lines.join('\n')],{type:'text/plain;charset=utf-8'});
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'wordbank-'+READER_DATA.id+'.txt';
-  a.click(); URL.revokeObjectURL(a.href);
-  copyText(lines.join('\n')).then(()=>{
-    alert('已导出 wordbank-'+READER_DATA.id+'.txt\n剪贴板已是三列格式（词/释义/例句），直接粘贴回对话框即可入库');
-  }).catch(()=>{
-    alert('已导出 wordbank-'+READER_DATA.id+'.txt');
-  });
 }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 init();
