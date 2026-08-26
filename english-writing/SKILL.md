@@ -1,6 +1,6 @@
 ---
 name: "english-writing"
-description: "雅思写作练习系统：两个入口 —— (1) 范文收录：传入一篇雅思范文，生成可划词的交互式阅读页，划词即收进单词本（localStorage），可导出为 txt；(2) 批改作文：给题目则生成写作页（打开时弹窗自选倒计时时长），或直接粘贴写好的作文，agent 生成按雅思四项评分标准（TA/CC/LR/GRA）的批注式批改 HTML，薄弱处高亮并推荐个人库里的更好替换词，含「重写」按钮循环练习。当用户说 '雅思作文'、'雅思写作'、'范文收录'、'批改作文'、'写作练习'、'IELTS writing'、'帮我改作文'、'生成写作页面'、'收录好词' 等时触发。"
+description: "雅思写作练习系统：两个入口 —— (1) 范文收录：传入一篇雅思范文，生成可划词的交互式阅读页，划词即收进单词本（localStorage），可导出为 txt；(2) 批改作文：给题目则生成写作页（打开时弹窗自选倒计时时长），或直接粘贴写好的作文，agent 生成按雅思四项评分标准（TA/CC/LR/GRA）的批注式批改 HTML，薄弱处高亮并推荐个人库里的更好替换词，含「重写」按钮循环练习。当用户说 '雅思作文'、'雅思写作'、'范文收录'、'批改作文'、'写作练习'、'IELTS writing'、'帮我改作文'、'生成写作页面'、'收录好词'、'同步词库到写作'、'导入 vocab-drill 词库' 等时触发。"
 ---
 
 # IELTS Writing Practice
@@ -18,7 +18,7 @@ description: "雅思写作练习系统：两个入口 —— (1) 范文收录：
 
 - **单词本（localStorage）**：范文阅读页的划词即收录，跟 `english-reading-exercises` 一样零摩擦 — 划选即存、刷新不丢，无需任何粘贴操作。
 - **两条入口互不依赖**：入口 1 往单词本里「存」好词好句，入口 2 从个人库「取」做批改建议。用户可以只用来收录、只用来批改，或两者配合。
-- **个人库（library.json）**：`~/Documents/ielts-writing/library.json`，长期积累的同义替换库，按「汉语释义」聚成同义组。单词本是单篇范文的临时产物，个人库是跨范文的长期资产 —— 两者靠**入库**这一步连接（见「入库」小节）。批改时 agent 从库里取替换建议。可选，不影响收录功能。
+- **个人库（library.json）**：`~/Documents/english-writing/library.json`，长期积累的同义替换库，按「汉语释义」聚成同义组。单词本是单篇范文的临时产物，个人库是跨范文的长期资产 —— 两者靠**入库**这一步连接（见「入库」小节）。批改时 agent 从库里取替换建议。可选，不影响收录功能。
 
 ## 接收粘贴内容的判定
 
@@ -107,6 +107,19 @@ python3 "<skill>/scripts/build_reader.py" --data-file /tmp/ielts-<slug>-reader.j
    ```
    阅读页右上角「词汇库」按钮打开的就是这个页面（同目录下的 `my-library.html`）。
 
+### 从 vocab-drill 一键导入词库（跨 skill 桥接）
+
+用户说「同步词库到写作」「导入 vocab-drill 词库」时，一条命令把背诵词库沉淀进个人库：
+
+```bash
+python3 "<skill>/scripts/import_vocab_drill.py"          # 加 --dry-run 可先预览
+```
+
+- 只**读** `~/.vocab-drill-state[-名字].json`（state 只由 vocab.mjs 写，本脚本不碰写侧），合并复用 `manage_library.py` 的同义组归并与组内去重——**重复执行安全**。
+- 词卡的中文释义同时作为 `group_meaning_zh`：同释义的词自动聚组；之后范文入库遇到相同释义也会并进同一组。
+- 只导**有词卡**的词（无词卡的还挂在待首测，词卡生成后重跑即可补进），`source` 标为 `vocab-drill`。
+- 导入后若用户想看库，顺手跑 `build_library_view.py` 刷新浏览页。
+
 ---
 
 # 入口 2：批改作文
@@ -175,7 +188,7 @@ python3 "<skill>/scripts/build_correction.py" --data-file /tmp/ielts-<slug>-corr
 ```bash
 python3 "<skill>/scripts/build_correction_review.py"
 ```
-- 数据源是 `~/Documents/ielts-writing/corrections-log.jsonl`（每次批改由 build_correction.py 自动追加，含批注明细）——log 是数据，HTML 是渲染产物，不要从批改页反解数据
+- 数据源是 `~/Documents/english-writing/corrections-log.jsonl`（每次批改由 build_correction.py 自动追加，含批注明细）——log 是数据，HTML 是渲染产物，不要从批改页反解数据
 - 兜底：log 功能上线前生成的旧批改页会被扫描收录，时间线取文件修改时间
 - 输出 `~/Desktop/IELTS Writing/review-corrections.html`：
   - 分数折线图（Overall / TA / CC / LR / GRA；Chart.js 走 CDN，离线时自动降级，数据以下方表格为准）
@@ -201,6 +214,7 @@ python3 "<skill>/scripts/build_correction_review.py"
 - `build_writer.py`：题目 → 写作页 + 倒计时（入口 2a）。
 - `build_correction.py`：批改数据 → 批改页；同时在输出目录放一份 `writer.html` 供「重写」跳转，并追加完整记录到 `corrections-log.jsonl`。
 - `manage_library.py`：`--print` 读库（批改前取建议）｜`--data-file` 入库｜`--init` 建空库。
+- `import_vocab_drill.py`：vocab-drill 词库 → 个人库一键导入（只读 state，`--dry-run` 预览，重复执行安全）。
 - `build_library_view.py`：库 → `my-library.html` 浏览页，`--out` 可指定路径。
 - `validate_data.py`：`--kind reader|correction` 生成前校验（批注是否在对应段落、分数是否 0-9）。
 - `build_correction_review.py`：读批改 log（旧 HTML 兜底，`--dir`/`--out` 可选）→ 生成进度汇总（分数折线图 + 按评分维度的问题统计）。
