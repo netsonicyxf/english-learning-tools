@@ -1,6 +1,6 @@
 ---
 name: "english-writing"
-description: "雅思写作练习系统：两个入口 —— (1) 范文收录：传入一篇雅思范文，或给一个含多篇范文的 pdf/docx/txt/md 文档路径批量解析，生成可划词的交互式阅读页（批量时逐篇生成 + 目录页汇总），划词即收进单词本（localStorage），可导出为 txt；(2) 批改作文：给题目则生成写作页（打开时弹窗自选倒计时时长），或直接粘贴写好的作文，agent 生成按雅思四项评分标准（TA/CC/LR/GRA）的批注式批改 HTML，薄弱处高亮并推荐个人库里的更好替换词，含「重写」按钮循环练习。当用户说 '雅思作文'、'雅思写作'、'范文收录'、'批改作文'、'写作练习'、'IELTS writing'、'帮我改作文'、'生成写作页面'、'收录好词'、'解析文档'、'学习这份文档'、'同步词库到写作'、'导入 vocab-drill 词库' 等时触发。"
+description: "雅思写作练习系统：两个入口 —— (1) 范文收录：传入一篇雅思范文，或给一个含多篇范文的 pdf/docx/txt/md 文档路径批量解析成一个**单页合集**阅读页（内置目录点击切篇，每篇词典与单词本独立），划词即收进单词本（localStorage），可导出为 txt；(2) 批改作文：给题目则生成写作页（打开时弹窗自选倒计时时长），或直接粘贴写好的作文，agent 生成按雅思四项评分标准（TA/CC/LR/GRA）的批注式批改 HTML，薄弱处高亮并推荐个人库里的更好替换词，含「重写」按钮循环练习。当用户说 '雅思作文'、'雅思写作'、'范文收录'、'批改作文'、'写作练习'、'IELTS writing'、'帮我改作文'、'生成写作页面'、'收录好词'、'解析文档'、'学习这份文档'、'同步词库到写作'、'导入 vocab-drill 词库' 等时触发。"
 ---
 
 # English Writing Practice
@@ -77,7 +77,7 @@ python3 "<skill>/scripts/build_reader.py" --data-file /tmp/english-<slug>-reader
 - 划词即收录，不需要粘贴回 agent。
 - 如需导出，在阅读页点「导出单词本」即可下载 .txt。
 
-### 批量解析文档（一篇文档 → 多篇阅读页 + 目录页）
+### 批量解析文档（一篇文档 → 单页合集阅读页）
 
 用户上传一个含多篇范文的文档（pdf/docx/doc/rtf/html/txt/md，给路径即可）时。本流程是 skill 自带能力，任何安装者扔一个文档路径进来即可用：
 
@@ -88,19 +88,19 @@ python3 "<skill>/scripts/build_reader.py" --data-file /tmp/english-<slug>-reader
    - PDF 走 PyPDF2，输出带 `===== PAGE N =====` 分页标记（范文合集常一页一篇，边界好认）；提取出的文本极少说明是扫描版 → 改用 Read 工具按页读该 PDF（无 PyPDF2 时也走这条路）。
    - docx 走 Python 标准库解 zip（跨平台零依赖，按段落保留边界）；doc/rtf/html 走 macOS `textutil`；txt/md 原样读。
 2. **agent 读 raw 文本拆篇**：识别每篇的标题/题目行/正文（常见结构如「N. 中文标题 + 英文题目 + 范文正文」，但**别假设结构**——编号、分页标记、题目行、字数尾注只是常见信号，按手头文档的实际结构找每篇边界即可），**顺手修复 PDF 提取的断词**——`pr oduced`→`produced`、`film -making`→`film-making`、`th e`→`the`、压掉多余空格。篇数多时把行号范围分给并行子代理处理，省主对话 context。
-3. **逐篇生成**：每篇按上面 Step 2/3 组装 reader JSON 并 build。注意：
-   - `id` 用 `<slug>-<NN>`（如 `simon-task2-03`）——单词本按 id 存 localStorage，跨篇或重跑都不能撞。
-   - 文件名 `<slug>-<NN>-<英文短slug>-reader.html`，统一平铺在 `~/Desktop/English Writing/`（前缀聚簇；别建子目录——阅读页的「词汇库」按钮按相对路径找 `my-library.html`）。
-   - 题目放 `content` 开头的 `<blockquote>`，正文一段一个 `<p>`；`(295 words, band 9)` 这类尾注移进 `source` / index 的 `meta`，不进正文。
-4. **汇总目录页**：写 `/tmp/english-<slug>-index.json`：
+3. **组装合集数据并生成单页**：全部篇目装进一个 JSON（`essays` 数组，每篇即上面 Step 2 的 reader 数据）：
    ```json
    {"id":"<slug>","title":"文档标题","source":"文件名",
-    "items":[{"title":"1. 中文标题","file":"<slug>-01-xxx-reader.html","meta":"295 words · band 9"}]}
+    "essays":[{"id":"<slug>-01","title":"1. 中文标题","source":"… · 295 words · band 9",
+               "content":"<blockquote>题目</blockquote><p>…</p>…","dictionary":{…}}]}
    ```
+   - 每篇 `id` 必须全合集唯一（如 `<slug>-<NN>`）——单词本按篇 id 存 localStorage（`english_collect_<每篇id>`），跨篇或重跑都不能撞。
+   - `content` 题目放开头 `<blockquote>`、正文一段一个 `<p>`；`(295 words, band 9)` 这类尾注移进该篇 `source`（目录卡片上显示），不进正文。
+   - 篇数多时先把各篇分给并行子代理生成（各写各的 JSON），再合并成 `essays` 数组。
    ```bash
-   python3 "<skill>/scripts/build_index.py" --data-file /tmp/english-<slug>-index.json --out ~/Desktop/English\ Writing/<slug>-index.html
+   python3 "<skill>/scripts/build_collection.py" --data-file /tmp/english-<slug>-collection.json --out ~/Desktop/English\ Writing/<slug>-reader.html
    ```
-   脚本会校验 items 链接目标是否真实存在。让用户从目录页进任意一篇；每篇单词本独立（按 id），导出/入库流程与单篇一致。
+   产物是**一个**自包含 HTML：打开先是目录，点任意篇进入阅读（URL `#e=<篇id>` 可直达/收藏），「目录」按钮或篇末「目录」返回，底部「上一篇 / 下一篇」顺序刷。每篇词典与单词本独立，划词收录、导出三列、入库流程与单篇范文完全一致。脚本自带校验（必填字段 + id 唯一）。
 
 ### Step 4：入库（把单词本沉淀进个人库）
 
@@ -238,7 +238,7 @@ python3 "<skill>/scripts/build_correction_review.py"
 ## 脚本一览
 - `build_reader.py`：范文 → 阅读页（入口 1）。顺带在同目录建 `my-library.html`（若不存在）。
 - `parse_document.py`：批量解析第一步，pdf/docx/doc/rtf/html/txt/md → 纯文本（PDF 带 `===== PAGE N =====` 标记，扫描版会提示改用 Read 按页读；docx 用标准库跨平台直解）。
-- `build_index.py`：多篇阅读页 → 目录页（相对链接同目录打开，校验链接目标存在）。
+- `build_collection.py`：多篇范文 → **单页合集**阅读页（内置目录切篇、上一篇/下一篇，校验必填字段与 id 唯一）。
 - `build_writer.py`：题目 → 写作页 + 倒计时（入口 2a）。
 - `build_correction.py`：批改数据 → 批改页；同时在输出目录放一份 `writer.html` 供「重写」跳转，并追加完整记录到 `corrections-log.jsonl`。`--no-log` 仅重渲染不记 log（模板微调后重新生成旧页面用，避免 log 重复记录）。
 - `manage_library.py`：`--print` 读库（批改前取建议）｜`--data-file` 入库｜`--init` 建空库。
