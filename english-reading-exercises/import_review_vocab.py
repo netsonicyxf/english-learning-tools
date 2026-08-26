@@ -4,6 +4,7 @@
 用法:
   python3 import_review_vocab.py                # 全量导入（默认 ~/Desktop/English Learning/review-vocab.json）
   python3 import_review_vocab.py --core         # 只导跨文章重复词（core）
+  python3 import_review_vocab.py --backfill     # 补录：已登记但还没词卡的词，数据源里有原句例句的也存卡
   python3 import_review_vocab.py <文件路径>     # review-vocab.json，或词单 txt
                                                  #（wordbank-export.txt 三列：词/释义/文章原句——
                                                  #  带原句的词直接存卡，原句即记忆锚点，不留给
@@ -39,6 +40,7 @@ def main():
 
     argv = sys.argv[1:]
     core_only = "--core" in argv
+    backfill = "--backfill" in argv
     src = Path(next((a for a in argv if not a.startswith("--")), DEFAULT_JSON))
     raw = src.read_text("utf-8")
 
@@ -73,10 +75,21 @@ def main():
     added = {ln.strip() for ln in res.stdout.splitlines()[1:] if ln.strip()}
     print(res.stdout.splitlines()[0])
 
+    # --backfill：除新登记的外，「已登记但无词卡」的词也纳入存卡范围
+    # （已有词卡的一律不碰——保护 agent 后来改写的例句，也不覆盖 quirky 卡）
+    targets = set(added)
+    if backfill:
+        nocards = set()
+        for ln in run(["--list"]).stdout.splitlines():
+            if ln.rstrip().endswith(" 无卡"):
+                nocards.add(ln[2:24].strip().lower())  # 第 2-24 列是 padEnd(22) 的词名
+        targets |= nocards & {e["word"].strip().lower() for e in entries}
+        print(f"backfill：词库共 {len(nocards)} 个无卡词，其中 {len(targets - added)} 个在本数据源里且带原句")
+
     n_card = 0
     for i, e in enumerate(entries, 1):
         w = e["word"].strip().lower()
-        if w not in added:
+        if w not in targets:
             continue
         example = (e.get("example") or "").strip()
         if not example:
