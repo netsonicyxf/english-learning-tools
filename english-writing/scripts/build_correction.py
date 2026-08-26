@@ -18,6 +18,9 @@ def main():
     ap.add_argument("--data", help="JSON string of correction data")
     ap.add_argument("--data-file", help="path to JSON file of correction data")
     ap.add_argument("--out", help="output HTML path")
+    ap.add_argument("--no-log", action="store_true",
+                    help="re-render only: skip appending to corrections-log.jsonl "
+                         "(use when regenerating an existing correction after a template tweak)")
     args = ap.parse_args()
 
     if args.data_file:
@@ -65,12 +68,13 @@ def main():
         ],
     }
     LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
-    with open(LOG_FILE, "a", encoding="utf-8") as f:
-        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    if not args.no_log:
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
     print(f"✅ 批改页已生成: {out}")
     print(f"✅ 写作页副本已放置: {out.parent / 'writer.html'}")
-    print(f"✅ 追加记录到 {LOG_FILE}")
+    print(f"✅ 追加记录到 {LOG_FILE}" if not args.no_log else "⏭ 已按 --no-log 跳过 log 追加")
 
 
 if __name__ == "__main__":

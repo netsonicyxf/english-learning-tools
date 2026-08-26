@@ -49,6 +49,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica N
 .anno-sugg{display:inline-block;margin-top:6px;font-size:12px;font-weight:700;color:#fff;background:var(--navy);padding:2px 9px;border-radius:8px}
 .anno-sugg.lib::before{content:'★ 来自你的库 · '}
 .anno-empty{color:var(--muted);font-size:13px;text-align:center;padding:20px}
+.rewrite-row{display:flex;justify-content:center;gap:56px;margin:26px 0 44px}
+.btn-rewrite-big{padding:13px 36px;font-size:16px}
 .tooltip{display:none;position:fixed;background:#1a1a2e;color:#fff;border-radius:10px;padding:12px 16px;box-shadow:0 8px 24px rgba(0,0,0,.25);z-index:1000;max-width:340px;font-size:13px;line-height:1.6}
 @media(max-width:900px){.layout{flex-direction:column}.anno-col{width:100%;position:static;max-height:none}}
 </style>
@@ -56,9 +58,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica N
 <body>
 <header class="top-bar">
   <h1>雅思作文批改</h1>
-  <div class="controls">
-    <button class="btn btn-primary" id="rewrite-btn">重写</button>
-  </div>
 </header>
 <div class="layout">
   <div class="essay-col">
@@ -78,6 +77,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica N
       <div id="anno-list"></div>
     </div>
   </aside>
+</div>
+<div class="rewrite-row">
+  <button class="btn btn-primary btn-rewrite-big" id="rewrite-edit-btn">✎ 在原文基础上修改</button>
+  <button class="btn btn-rewrite-big" id="rewrite-blank-btn">↻ 重写</button>
 </div>
 <div class="tooltip" id="tooltip"></div>
 <script>
@@ -191,10 +194,23 @@ function showTip(e,id){
   requestAnimationFrame(()=>{ const r=$tooltip.getBoundingClientRect(); let x=e.clientX+12,y=e.clientY-r.height-12; if(x+r.width>innerWidth-10)x=innerWidth-r.width-10; if(y<10)y=e.clientY+24; if(x<10)x=10; $tooltip.style.left=x+'px'; $tooltip.style.top=y+'px'; });
 }
 function bind(){
-  document.getElementById('rewrite-btn').addEventListener('click',()=>{
+  const goRewrite=(withDraft)=>{
     const topic=encodeURIComponent(CORRECTION_DATA.topic||'');
     const task=CORRECTION_DATA.task||'task2';
-    location.href='./writer.html#topic='+topic+'&task='+task;
+    let href='./writer.html#topic='+topic+'&task='+task;
+    if(withDraft&&CORRECTION_DATA.essay){
+      // 只带 error/improve 批注（good 亮点不是待办），键名压缩省 URL 体积
+      const annos=(CORRECTION_DATA.annotations||[])
+        .filter(a=>a.severity==='error'||a.severity==='improve')
+        .map(a=>({t:a.text,c:a.comment,s:a.suggestion||'',b:a.band||'',v:a.severity}));
+      href+='&essay='+encodeURIComponent(CORRECTION_DATA.essay)
+          +'&annos='+encodeURIComponent(JSON.stringify(annos));
+    }
+    location.href=href;
+  };
+  [['rewrite-edit-btn',true],['rewrite-blank-btn',false]].forEach(function(pair){
+    const el=document.getElementById(pair[0]);
+    if(el) el.addEventListener('click',function(){ goRewrite(pair[1]); });
   });
 }
 function truncate(s,n){ return s&&s.length>n?s.substring(0,n)+'…':s; }

@@ -35,6 +35,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica N
 .btn-submit{background:var(--leaf);color:#fff;border-color:var(--navy);box-shadow:3px 3px 0 var(--navy);padding:12px 32px;font-size:16px}
 .btn-submit:hover{transform:translate(-2px,-2px);box-shadow:5px 5px 0 var(--coral)}
 .hint{font-size:12px;color:var(--muted);text-align:center;margin-bottom:30px}
+.workbench{display:flex;gap:16px;align-items:flex-start}
+.workbench .editor{flex:1;min-width:0}
+.anno-panel{width:320px;flex-shrink:0;background:var(--white);border:2.5px solid var(--navy);border-radius:16px 20px 14px 18px;box-shadow:5px 6px 0 rgba(23,59,120,.8);padding:14px;max-height:72vh;overflow-y:auto}
+.anno-panel-head{font-size:14px;font-weight:800;color:var(--navy);margin-bottom:10px;display:flex;justify-content:space-between;align-items:baseline}
+.anno-panel-head .anno-progress{font-size:12px;color:var(--muted);font-weight:700}
+.anno-card{border:1.5px solid #e5e7eb;border-radius:10px;padding:10px 11px;margin-bottom:8px;background:var(--cream);cursor:pointer}
+.anno-card:hover{transform:translate(-1px,-1px);box-shadow:2px 2px 0 var(--navy)}
+.anno-card.error{border-left:4px solid #e03131}
+.anno-card.improve{border-left:4px solid #f08c00}
+.anno-card-head{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.sev-dot{width:9px;height:9px;border-radius:50%}
+.sev-dot.error{background:#e03131}.sev-dot.improve{background:#f08c00}
+.badge{font-size:10px;font-weight:800;padding:1px 7px;border-radius:8px;background:#d6ecff;color:var(--navy)}
+.anno-quote{font-size:12px;font-family:Georgia,serif;color:#1a1a2e;margin-bottom:4px}
+.anno-note{font-size:12px;color:#344054;line-height:1.6}
+.anno-sugg{display:inline-block;margin-top:4px;font-size:11px;font-weight:700;color:#fff;background:var(--navy);padding:1px 8px;border-radius:8px}
+.anno-status{margin-top:6px;font-size:11px;font-weight:800;color:#f08c00}
+.anno-status.ok{color:#2f9e44}
+@media(max-width:900px){.workbench{flex-direction:column}.anno-panel{width:100%;max-height:none}}
 .overlay{position:fixed;inset:0;background:rgba(23,52,95,.55);display:flex;align-items:center;justify-content:center;z-index:200;padding:18px}
 .overlay.hidden{display:none}
 .modal{background:var(--white);border:2.5px solid var(--navy);border-radius:18px 24px 16px 22px;box-shadow:6px 7px 0 rgba(23,59,120,.8);max-width:400px;width:100%;padding:24px 26px}
@@ -75,9 +94,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica N
     <span class="topic-tag" id="task-tag">Task 2</span>
     <div class="topic-text" id="topic"></div>
   </div>
-  <div class="editor">
-    <div class="editor-bar"><span>在此写作（建议 250+ 词 / Task 2）</span><span id="stat">0 词 · 0 段</span></div>
-    <textarea id="essay" placeholder="开始写你的作文…写完后点下方「提交」，会自动复制到剪贴板，再粘贴回对话框即可批改。"></textarea>
+  <div class="workbench">
+    <div class="editor">
+      <div class="editor-bar"><span>在此写作（建议 250+ 词 / Task 2）</span><span id="stat">0 词 · 0 段</span></div>
+      <textarea id="essay" placeholder="开始写你的作文…写完后点下方「提交」，会自动复制到剪贴板，再粘贴回对话框即可批改。"></textarea>
+    </div>
+    <aside class="anno-panel" id="anno-panel" style="display:none">
+      <div class="anno-panel-head">批注清单 <span class="anno-progress" id="anno-progress"></span></div>
+      <div id="anno-list"></div>
+    </aside>
   </div>
   <div class="submit-row">
     <button class="btn btn-submit" id="submit-btn">提交（复制作文）</button>
@@ -120,6 +145,8 @@ function parseHash(){
   // containing a literal % (e.g. "50% of people") with URIError.
   if(p.get('topic')) out.topic=p.get('topic');
   if(p.get('task')) out.task=p.get('task');
+  if(p.get('essay')) out.essay=p.get('essay');   // 重写入口带入的上一版草稿
+  if(p.get('annos')){ try{ out.annos=JSON.parse(p.get('annos')); }catch(e){} }
   if(p.get('minutes')) out.minutes=parseInt(p.get('minutes'))||45;
   return out;
 }
@@ -225,6 +252,47 @@ document.getElementById('submit-btn').addEventListener('click',()=>{
     document.body.removeChild(ta);
   });
 });
+// 上一版草稿预填（来自批改页「在原文基础上修改」），预填后刷新字数统计
+if(WRITER_DATA.essay){
+  $essay.value=WRITER_DATA.essay;
+  $essay.dispatchEvent(new Event('input'));
+}
+// 批注清单（同一入口带入）：正文里改掉对应片段 → 该条自动打勾；点击卡片 → 正文选中定位
+const ANNOS=Array.isArray(WRITER_DATA.annos)?WRITER_DATA.annos:[];
+if(ANNOS.length){
+  const escA=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const $panel=document.getElementById('anno-panel');
+  const $list=document.getElementById('anno-list');
+  const $prog=document.getElementById('anno-progress');
+  $panel.style.display='';
+  $list.innerHTML=ANNOS.map((a,i)=>(
+    '<div class="anno-card '+(a.v==='error'?'error':'improve')+'" data-i="'+i+'">'+
+      '<div class="anno-card-head"><span class="sev-dot '+(a.v==='error'?'error':'improve')+'"></span><span class="badge">'+escA(a.b||'')+'</span></div>'+
+      '<div class="anno-quote">'+escA(a.t||'')+'</div>'+
+      '<div class="anno-note">'+escA(a.c||'')+(a.s?'<br><span class="anno-sugg">★ '+escA(a.s)+'</span>':'')+'</div>'+
+      '<div class="anno-status">待处理</div>'+
+    '</div>'
+  )).join('');
+  function refreshAnnos(){
+    let done=0;
+    ANNOS.forEach((a,i)=>{
+      const ok=a.t&&!$essay.value.includes(a.t);
+      if(ok)done++;
+      const st=$list.querySelector('[data-i="'+i+'"] .anno-status');
+      if(st){ st.textContent=ok?'✓ 已处理':'待处理'; st.classList.toggle('ok',ok); }
+    });
+    $prog.textContent=done+'/'+ANNOS.length+' 已处理';
+  }
+  $essay.addEventListener('input',refreshAnnos);
+  $list.addEventListener('click',e=>{
+    const card=e.target.closest('.anno-card'); if(!card)return;
+    const a=ANNOS[+card.dataset.i]; if(!a||!a.t)return;
+    const idx=$essay.value.indexOf(a.t);
+    if(idx<0)return;
+    $essay.focus(); $essay.setSelectionRange(idx,idx+a.t.length);
+  });
+  refreshAnnos();
+}
 </script>
 </body>
 </html>
