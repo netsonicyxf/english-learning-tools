@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the IELTS writing HTML (topic + 45-min timer) from JSON data."""
+"""Build the IELTS writing HTML (topic + user-set countdown timer) from JSON data."""
 import json, sys, argparse
 from pathlib import Path
 

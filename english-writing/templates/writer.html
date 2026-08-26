@@ -35,6 +35,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica N
 .btn-submit{background:var(--leaf);color:#fff;border-color:var(--navy);box-shadow:3px 3px 0 var(--navy);padding:12px 32px;font-size:16px}
 .btn-submit:hover{transform:translate(-2px,-2px);box-shadow:5px 5px 0 var(--coral)}
 .hint{font-size:12px;color:var(--muted);text-align:center;margin-bottom:30px}
+.overlay{position:fixed;inset:0;background:rgba(23,52,95,.55);display:flex;align-items:center;justify-content:center;z-index:200;padding:18px}
+.overlay.hidden{display:none}
+.modal{background:var(--white);border:2.5px solid var(--navy);border-radius:18px 24px 16px 22px;box-shadow:6px 7px 0 rgba(23,59,120,.8);max-width:400px;width:100%;padding:24px 26px}
+.modal h3{font-size:17px;color:var(--navy);margin-bottom:4px}
+.modal .modal-sub{font-size:13px;color:var(--muted);margin-bottom:14px}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.preset{padding:6px 14px;font-size:13px;font-weight:700;border:1.5px solid var(--navy);border-radius:9px;background:var(--cream);color:var(--navy);cursor:pointer}
+.preset:hover{transform:translate(-1px,-1px);box-shadow:2px 2px 0 var(--navy)}
+.preset.active{background:var(--sun)}
+.min-row{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.min-row input{width:90px;padding:8px 10px;font-size:16px;font-weight:700;color:var(--navy);border:2px solid var(--navy);border-radius:9px;background:var(--white);font-family:Georgia,serif;text-align:center}
+.min-row span{font-size:14px;color:var(--ink)}
+.modal-err{font-size:12px;color:#e03131;min-height:18px;margin:2px 0 10px}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end}
 </style>
 </head>
 <body>
@@ -49,8 +63,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica N
 </header>
 <div class="timer-box">
   <span class="timer-label">剩余时间</span>
-  <span class="timer" id="timer">45:00</span>
+  <span class="timer" id="timer">--:--</span>
   <div class="timer-btns">
+    <button id="set-btn">改时间</button>
     <button id="pause-btn">暂停</button>
     <button id="reset-btn">重置</button>
   </div>
@@ -68,6 +83,27 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica N
     <button class="btn btn-submit" id="submit-btn">提交（复制作文）</button>
   </div>
   <div class="hint">提交后会复制整篇作文到剪贴板，请粘贴到对话窗口交给 agent 批改。</div>
+</div>
+<div class="overlay hidden" id="time-overlay">
+  <div class="modal">
+    <h3>设置倒计时时长</h3>
+    <div class="modal-sub">考试建议：Task 1 约 20 分钟 · Task 2 约 40 分钟</div>
+    <div class="preset-row" id="preset-row">
+      <button class="preset" data-min="20">20 分钟</button>
+      <button class="preset" data-min="40">40 分钟</button>
+      <button class="preset" data-min="45">45 分钟</button>
+      <button class="preset" data-min="60">60 分钟</button>
+    </div>
+    <div class="min-row">
+      <input type="number" id="min-input" min="1" max="240" step="1" value="45">
+      <span>分钟</span>
+    </div>
+    <div class="modal-err" id="modal-err"></div>
+    <div class="modal-actions">
+      <button class="btn" id="time-cancel" style="display:none">取消</button>
+      <button class="btn btn-primary" id="time-ok">开始计时</button>
+    </div>
+  </div>
 </div>
 <script>
 const WRITER_DATA = Object.assign(
@@ -98,12 +134,13 @@ const $pauseBtn=document.getElementById('pause-btn');
 document.title='写作: '+(WRITER_DATA.topic||'').substring(0,30);
 $topic.textContent=WRITER_DATA.topic;
 $taskTag.textContent=WRITER_DATA.task==='task1'?'Task 1':'Task 2';
-$meta.textContent='题目已载入 · 倒计时 '+WRITER_DATA.minutes+' 分钟';
+$meta.textContent='题目已载入 · 请设置倒计时';
 
-let total=WRITER_DATA.minutes*60;
-let left=total; let running=true; let iv=null;
+let total=0;
+let left=0; let running=false; let iv=null;
 function fmt(s){ const m=Math.floor(s/60), ss=s%60; return String(m).padStart(2,'0')+':'+String(ss).padStart(2,'0'); }
 function paint(){
+  if(!total){ $timer.textContent='--:--'; $timer.classList.remove('warn','danger'); return; }
   $timer.textContent=fmt(left);
   $timer.classList.toggle('warn', left<=300 && left>60);
   $timer.classList.toggle('danger', left<=60);
@@ -114,7 +151,57 @@ function tick(){
   if(left===0){ running=false; clearInterval(iv); alert('时间到！可直接提交，或点「重置」再练。'); }
 }
 function start(){ clearInterval(iv); iv=setInterval(tick,1000); }
-paint(); start();
+
+const LS_MIN_KEY='ielts_writer_minutes';
+const $overlay=document.getElementById('time-overlay');
+const $minInput=document.getElementById('min-input');
+const $modalErr=document.getElementById('modal-err');
+const $timeOk=document.getElementById('time-ok');
+const $timeCancel=document.getElementById('time-cancel');
+let editMode=false, prevLeft=0, prevRunning=false;
+function savedMinutes(){ try{ const v=parseInt(localStorage.getItem(LS_MIN_KEY),10); return (v>0)?v:null; }catch(e){ return null; } }
+function defaultMinutes(){
+  if(total) return Math.round(total/60);          // 改时间：预填当前时长
+  const s=savedMinutes(); if(s) return s;         // 上次用的
+  const m=parseInt(WRITER_DATA.minutes,10); return (m>0)?m:45;  // 数据/URL 给的默认
+}
+function markPreset(){
+  const v=String(parseInt($minInput.value,10));
+  document.querySelectorAll('.preset').forEach(b=>b.classList.toggle('active', b.dataset.min===v));
+}
+function openModal(edit){
+  editMode=!!edit;
+  prevLeft=left; prevRunning=running;
+  running=false; $pauseBtn.textContent='暂停';
+  $minInput.value=defaultMinutes(); markPreset();
+  $modalErr.textContent='';
+  $timeCancel.style.display=editMode?'':'none';
+  $timeOk.textContent=editMode?'开始新的倒计时':'开始计时';
+  $overlay.classList.remove('hidden');
+  $minInput.focus(); $minInput.select();
+}
+function applyMinutes(){
+  const m=parseInt($minInput.value,10);
+  if(!(m>0)||m>240){ $modalErr.textContent='请输入 1–240 之间的分钟数'; return; }
+  try{ localStorage.setItem(LS_MIN_KEY,String(m)); }catch(e){}
+  total=m*60; left=total; running=true; $pauseBtn.textContent='暂停';
+  $meta.textContent='题目已载入 · 倒计时 '+m+' 分钟';
+  paint(); start(); $overlay.classList.add('hidden');
+}
+$timeOk.addEventListener('click',applyMinutes);
+$minInput.addEventListener('input',markPreset);
+$minInput.addEventListener('keydown',e=>{ if(e.key==='Enter')applyMinutes(); });
+$timeCancel.addEventListener('click',()=>{
+  left=prevLeft; running=prevRunning&&total>0; if(running)start();
+  paint(); $overlay.classList.add('hidden');
+});
+$overlay.addEventListener('click',e=>{ if(e.target===$overlay&&editMode) $timeCancel.click(); });
+document.getElementById('preset-row').addEventListener('click',e=>{
+  const b=e.target.closest('.preset'); if(!b) return;
+  $minInput.value=b.dataset.min; markPreset(); applyMinutes();
+});
+document.getElementById('set-btn').addEventListener('click',()=>openModal(true));
+paint(); openModal(false);
 
 $essay.addEventListener('input',()=>{
   const t=$essay.value.trim();
@@ -122,8 +209,8 @@ $essay.addEventListener('input',()=>{
   const paras=t?t.split(/\n\s*\n/).filter(Boolean).length:0;
   $stat.textContent=words+' 词 · '+paras+' 段';
 });
-$pauseBtn.addEventListener('click',()=>{ running=!running; $pauseBtn.textContent=running?'暂停':'继续'; if(running)start(); });
-document.getElementById('reset-btn').addEventListener('click',()=>{ left=total; running=true; $pauseBtn.textContent='暂停'; paint(); start(); });
+$pauseBtn.addEventListener('click',()=>{ if(!total)return; running=!running; $pauseBtn.textContent=running?'暂停':'继续'; if(running)start(); });
+document.getElementById('reset-btn').addEventListener('click',()=>{ if(!total)return; left=total; running=true; $pauseBtn.textContent='暂停'; paint(); start(); });
 document.getElementById('clear-btn').addEventListener('click',()=>{ if(confirm('清空当前作文？')){ $essay.value=''; $stat.textContent='0 词 · 0 段'; } });
 document.getElementById('submit-btn').addEventListener('click',()=>{
   const essay=$essay.value.trim();
