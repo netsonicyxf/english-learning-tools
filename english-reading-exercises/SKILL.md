@@ -83,13 +83,12 @@ Property schema（字段名/类型）：
 
 从 Notion LR Materials 数据库自动拉取近期文章列表，让用户选择：
 
-1. 检查是否有 `token_v2` cookie。如果当前会话中用户未提供，提示用户提供 Notion 的 `token_v2` cookie（从浏览器 DevTools → Application → Cookies → `lonelyreader.notion.site` → `token_v2` 复制）。
+1. 该站点是公开的 notion.site，API **无需认证**，直接裸调即可（实测 2026-08 可用）。不要预先向用户要 cookie；仅当 API 返回 401/403 时，才让用户提供 `token_v2`（浏览器 DevTools → Application → Cookies → `lonelyreader.notion.site` → `token_v2` 复制），在 curl 里加 `-H "Cookie: token_v2=${TOKEN}"` 重试。
 
 2. 调用 `queryCollection` 获取文章列表（server 端 sort 会返回 400，不带 sort，Python 侧排序）：
 ```bash
 curl -s 'https://www.notion.so/api/v3/queryCollection' \
   -H 'Content-Type: application/json' \
-  -H "Cookie: token_v2=${TOKEN}" \
   -d '{
     "collectionId": "f4909729-788b-459f-8681-4456274467f5",
     "collectionViewId": "31a202c6-de74-802d-951a-000cc3d6c4d4",
@@ -115,22 +114,33 @@ curl -s 'https://www.notion.so/api/v3/queryCollection' \
    - 类型：`properties.awgs[0][0]`
    - 标签：`properties["G\\_R"]` 所有元素的 `[0]` 拼接
 
-   注意：block 值有**双重嵌套**：`block[bid].value.value.properties`（不是 `block[bid].value.properties`）。
+   注意：`recordMap` 在响应**顶层**（`data.recordMap`，不在 `data.result` 里）；block 值有**双重嵌套**：`data.recordMap.block[bid].value.value.properties`（不是 `...block[bid].value.properties`）。
 
 4. Python 侧按日期降序排列，展示**最新 10 篇**给用户选择。格式：`序号 | 日期 | 标题（前 60 字）`。说「最近更新这几篇，看看有哪个想练的？」。如果用户想选更早的，再展示更多。
 
-5. 用户选择后，调用 `loadPageChunk` 获取文章正文：
+5. 用户选择后，调用 `loadPageChunk` 获取文章正文。**必须循环翻页取完**：单次调用只返回约 100 个 block（实测一篇约 3600 词的文章有 3 页，只调一次会静默丢掉 2/3 正文），响应顶层的 `cursor.stack` 非空表示还有下一页：
 ```bash
+# 第 0 页：cursor 传 {"stack": []}
 curl -s 'https://www.notion.so/api/v3/loadPageChunk' \
   -H 'Content-Type: application/json' \
-  -H "Cookie: token_v2=${TOKEN}" \
   -d "{\"pageId\":\"<用户选的blockId>\",\"limit\":100,\"cursor\":{\"stack\":[]},\"chunkNumber\":0,\"verticalColumns\":false}"
 ```
 
-6. 从 `recordMap.block` 中提取正文：
-   - 过滤出 content block（排除 page block 自身）：`type` 为 `text`、`header`、`sub_header`、`bulleted_list`、`numbered_list`、`quote` 等
+Python 侧翻页循环（每页的 `recordMap.block` 合并进同一 dict，blockId 作 key 天然去重）：
+```python
+cursor, num, blocks = {"stack": []}, 0, {}
+while True:
+    resp = load_page_chunk(page_id, cursor, num)   # 上面 curl 的封装
+    blocks.update(resp["recordMap"]["block"])
+    if not resp["cursor"]["stack"]:
+        break                                       # stack 为空 = 正文取完
+    cursor, num = resp["cursor"], num + 1
+```
+
+6. 从合并后的 block dict 中提取正文：
+   - 过滤出 content block，按 `type` 映射 HTML：`text` → `<p>`，`header` → `<h2>`，`sub_header` → `<h3>`，`sub_sub_header` → `<h4>`（小节标题，本文库很常见），`quote` → `<blockquote>`，`bulleted_list` → `<ul><li>`，`numbered_list` → `<ol><li>`
+   - `callout` 自身 `properties` 为空（文本在子 block 里），作为容器递归处理其子 block 即可；`page`、`collection_view_page`、`table_of_contents` 及未列出的类型直接跳过
    - 从每个 block 的 `properties.title` 中提取文本（title 格式为 `[["text", [["b"]]], ...]`）
-   - 转换为对应 HTML：text → `<p>`，header → `<h2>`，sub_header → `<h3>`，quote → `<blockquote>`，bulleted_list → `<ul><li>`，numbered_list → `<ol><li>`
    - block 的 content 数组可能包含子 block，需递归处理
 
 7. 标题从 `properties.title` 中提取（同上格式），作为 `article_data.title`。
