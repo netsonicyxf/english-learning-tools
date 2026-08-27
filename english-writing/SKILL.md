@@ -70,7 +70,8 @@ python3 "<skill>/scripts/build_reader.py" --data-file /tmp/english-<slug>-reader
 阅读页行为（模板内置，无需在数据中指定）：
 - 鼠标划词 → 自动查本地词典，查不到走免费翻译接口 → 翻译气泡 + **自动收进右侧单词本（localStorage）**。零摩擦，无需任何按钮。
 - 单词本可单条删除。
-- 单词本仅存浏览器（不设导出按钮）；个人库的补充来源走「导入 vocab-drill 词库」。
+- 单词本仅存浏览器（不设导出按钮），它是划词的即时层；个人库走「入库」（词源是页面内嵌词典，
+  见「入库」小节）或「导入 vocab-drill 词库」。
 
 ### 数据完全在浏览器内
 - 单词本保存在 `localStorage`（key: `english_collect_<slug>`），刷新不丢。
@@ -105,7 +106,15 @@ python3 "<skill>/scripts/build_reader.py" --data-file /tmp/english-<slug>-reader
 ### Step 4：入库（把单词本沉淀进个人库）
 
 **这一步是可选的、用户触发的** —— 不要在生成阅读页后自动催促。当用户说「入库」「存进词汇库」
-「同步一下」或直接粘贴导出的单词本内容时才做。没有这一步，入口 2 的「库推荐」就无库可取。
+「同步一下」时才做。没有这一步，入口 2 的「库推荐」就无库可取。
+
+0. **抽取词源（无需用户粘贴）**：阅读页/合集页生成时已把每篇词典内嵌进 HTML，
+   `extract_dictionary.py` 直接从 `essays/` 读出来（与阅读 skill 的 review-vocab.json 同构）：
+   ```bash
+   python3 "<skill>/scripts/extract_dictionary.py" --out /tmp/english-dict.json
+   ```
+   注意：浏览器 localStorage 里用户**划过**的词读不到（那是浏览器私有存储）；
+   抽的是全量词典。若用户只想收划过的那几个词，让其把词贴出来即可。
 
 1. **先读已有组名**，避免把 `重要的` 和 `重要/起作用` 拆成两个近义组：
    ```bash
@@ -114,7 +123,9 @@ python3 "<skill>/scripts/build_reader.py" --data-file /tmp/english-<slug>-reader
    合并靠 `group_meaning_zh` 的归一化字符串精确匹配（去掉非字母数字后小写比较），**不做语义判断**。
    所以复用已存在的组名是 agent 的责任：能归进已有组就用那个组的原文组名，别造新说法。
 
-2. **聚类并入库**。把每条词按语义归组，写入 `/tmp/english-lib-add.json`：
+2. **聚类并入库**。从抽出的词典里**筛值得做替换建议的词**（个人库是同义替换库，
+   主题名词/基础词不必进；vocab-drill 那种记忆型词库才全收），按语义归组写入
+   `/tmp/english-lib-add.json`：
    ```json
    {"items":[
      {"term":"crucial","pos":"adj","translation":"至关重要的","group_meaning_zh":"重要的",
@@ -242,6 +253,7 @@ python3 "<skill>/scripts/build_correction_review.py"
 - `build_writer.py`：题目 → 写作页 + 倒计时（入口 2a）。
 - `build_correction.py`：批改数据 → 批改页；同时在输出目录放一份 `writer.html` 供「重写」跳转，并追加完整记录到 `corrections-log.jsonl`。`--no-log` 仅重渲染不记 log（模板微调后重新生成旧页面用，避免 log 重复记录）。
 - `manage_library.py`：`--print` 读库（批改前取建议）｜`--data-file` 入库｜`--init` 建空库。
+- `extract_dictionary.py`：从 `essays/` 的阅读页/合集页抽内嵌词典（「入库」的词源，无需用户粘贴）。
 - `import_vocab_drill.py`：vocab-drill 词库 → 个人库一键导入（只读 state，`--dry-run` 预览，重复执行安全）。
 - `build_library_view.py`：库 → `my-library.html` 浏览页，`--out` 可指定路径。
 - `validate_data.py`：`--kind reader|correction` 生成前校验（批注是否在对应段落、分数是否 0-9）。
