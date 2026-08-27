@@ -1,6 +1,6 @@
 ---
 name: "english-writing"
-description: "雅思写作练习系统：两个入口 —— (1) 范文收录：传入一篇雅思范文，或给一个含多篇范文的 pdf/docx/txt/md 文档路径批量解析成一个**单页合集**阅读页（内置目录点击切篇，每篇词典与单词本独立），划词即收进单词本（localStorage，仅存浏览器）；(2) 批改作文：给题目则生成写作页（打开时弹窗自选倒计时时长），或直接粘贴写好的作文，agent 生成按雅思四项评分标准（TA/CC/LR/GRA）的批注式批改 HTML，薄弱处高亮并推荐个人库里的更好替换词，含「重写」按钮循环练习。当用户说 '雅思作文'、'雅思写作'、'范文收录'、'批改作文'、'写作练习'、'IELTS writing'、'帮我改作文'、'生成写作页面'、'收录好词'、'解析文档'、'学习这份文档'、'同步词库到写作'、'导入 vocab-drill 词库' 等时触发。"
+description: "雅思写作练习系统：两个入口 —— (1) 范文收录：传入一篇雅思范文，或给一个含多篇范文的 pdf/docx/txt/md 文档路径批量解析成一个**单页合集**阅读页（内置目录点击切篇，每篇词典与单词本独立），划词即收进单词本（localStorage，仅存浏览器）；(2) 批改作文：给题目则生成写作页（打开时弹窗自选倒计时时长），或直接粘贴写好的作文，agent 生成按雅思四项评分标准（TA/CC/LR/GRA）的批注式批改 HTML，薄弱处高亮并推荐个人库里的更好替换词，含「重写」按钮循环练习。当用户说 '雅思作文'、'雅思写作'、'范文收录'、'批改作文'、'写作练习'、'IELTS writing'、'帮我改作文'、'生成写作页面'、'收录好词'、'导入素材库'、'解析文档'、'学习这份文档'、'同步词库到写作'、'导入 vocab-drill 词库' 等时触发。"
 ---
 
 # English Writing Practice
@@ -105,26 +105,33 @@ python3 "<skill>/scripts/build_reader.py" --data-file /tmp/english-<slug>-reader
    ```
    产物是**一个**自包含 HTML：打开先是目录，点任意篇进入阅读（URL `#e=<篇id>` 可直达/收藏），「目录」按钮或篇末「目录」返回，底部「上一篇 / 下一篇」顺序刷。每篇词典与单词本独立，划词收录行为与单篇范文完全一致。脚本自带校验（必填字段 + id 唯一）。
 
-### Step 4：入库（把单词本沉淀进个人库）
+### Step 4：导入素材库（个人库 library.json —— 写作 skill 自己的库）
 
-**这一步是可选的、用户触发的** —— 不要在生成阅读页后自动催促。当用户说「入库」「存进词汇库」
-「同步一下」时才做。没有这一步，入口 2 的「库推荐」就无库可取。
+素材库 = `~/Documents/english-writing/library.json`，批改时 ★ 替换建议的唯一来源。
+**与 vocab-drill 无关**（那是另一个独立功能的输入侧，见「从 vocab-drill 一键导入」）。
 
-0. **抽取词源（无需用户粘贴）**：阅读页/合集页生成时已把每篇词典内嵌进 HTML，
-   `extract_dictionary.py` 直接从 `essays/` 读出来（与阅读 skill 的 review-vocab.json 同构）：
+**这一步是可选的、用户触发的** —— 不要在生成阅读页后自动催促。当用户说「导入素材库」
+「入库」「存进词汇库」「同步一下」时才做。两种词源，按用户意图选：
+
+**词源 A：用户划过的词/词组（「导入素材库」默认指这个）**
+0. 先找导出文件（用户在 `my-library.html` 划词词本区点过「⬇ 导出词单」就会生成）：
+   ```bash
+   ls -t ~/Downloads/english-wordbank-export*.txt | head -1
+   ```
+   （浏览器可能给重名文件加 "(1)" 后缀，按修改时间取最新。）
+   - 找到 → 直接读（word/释义/原句 三列 tab 分隔），**词组照收**（term 允许多词短语）。
+   - 没找到 → 提示用户：打开 `essays/my-library.html` 点一下「⬇ 导出词单」，再回来
+     说一声即可。这一步点击无法省略：浏览器沙箱不允许页面悄悄写磁盘，agent 也读不到
+     浏览器内部存储，localStorage → 磁盘文件必须经用户之手（阅读 skill 的「导出词本」
+     按钮同理）。不要退回让用户手动复制粘贴。
+
+**词源 B：全量词典（用户说「入库」「把这篇的词都收进素材库」）**
+0. 阅读页/合集页生成时已把每篇词典内嵌进 HTML，`extract_dictionary.py` 直接从 `essays/`
+   读出来（与阅读 skill 的 review-vocab.json 同构）：
    ```bash
    python3 "<skill>/scripts/extract_dictionary.py" --out /tmp/english-dict.json
    ```
-   注意：浏览器 localStorage 里用户**划过**的词，agent 从磁盘读不到（浏览器私有存储）；
-   抽的是全量词典。两种收划过词的方式：
-   - **主路（一次点击）**：用户在 `my-library.html` 的划词词本区点「⬇ 导出词单」→
-     下载 `english-wordbank-export.txt`（word/释义/原句 三列，落在浏览器默认下载目录），
-     词单同时进剪贴板。之后用户说「入库我划的词」，agent 直接读该文件：
-     ```bash
-     ls -t ~/Downloads/english-wordbank-export*.txt | head -1
-     ```
-     （浏览器可能给重名文件加 "(1)" 后缀，按修改时间取最新。）
-   - 兜底：用户把词复制贴出来。
+   从抽出的词典里**筛值得做替换建议的词**（素材库是同义替换库，主题名词/基础词不必进）。
    `my-library.html` 打开时本就会实时读 localStorage 汇总划词词本，用户能看到自己划了什么。
 
 1. **先读已有组名**，避免把 `重要的` 和 `重要/起作用` 拆成两个近义组：
@@ -134,9 +141,8 @@ python3 "<skill>/scripts/build_reader.py" --data-file /tmp/english-<slug>-reader
    合并靠 `group_meaning_zh` 的归一化字符串精确匹配（去掉非字母数字后小写比较），**不做语义判断**。
    所以复用已存在的组名是 agent 的责任：能归进已有组就用那个组的原文组名，别造新说法。
 
-2. **聚类并入库**。从抽出的词典里**筛值得做替换建议的词**（个人库是同义替换库，
-   主题名词/基础词不必进；vocab-drill 那种记忆型词库才全收），按语义归组写入
-   `/tmp/english-lib-add.json`：
+2. **聚类并入库**（两种词源共用）。把词按语义归组写入 `/tmp/english-lib-add.json`
+   （划词词单的第三列原句可作 `example`；词组 term 照收）：
    ```json
    {"items":[
      {"term":"crucial","pos":"adj","translation":"至关重要的","group_meaning_zh":"重要的",
