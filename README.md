@@ -21,7 +21,7 @@
 双入口：把英文文章变成交互式阅读练习页（划词即译、自动单词本、六种练习：单词释义 / 句型改写 / 摘要完形 / 句子重排 / 概念图 / 背诵段落），以及跨文章汇总复习页（Anki 式翻卡、句型运用、词汇重叠分析）。
 
 - 输入：文章 URL / 粘贴文本 / Notion LR Materials 数据库
-- 输出：`*-reading.html`（单文件，浏览器打开即用）→ `review-all.html` + `review-vocab.json`
+- 输出（`~/Desktop/English Learning/`）：`articles/*-reading.html`（单文件，浏览器打开即用）→ 根目录 `review-all.html` + `review-vocab.json`
 
 ### [vocab-drill](vocab-drill/)
 

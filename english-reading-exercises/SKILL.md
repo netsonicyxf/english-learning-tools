@@ -42,7 +42,7 @@ read_when:
 2. **自动单词本** — 划过的内容自动收入侧边栏单词本，可导出
 3. **六种练习** — 阅读完毕后一键生成：单词释义（来自单词本）、句型练习、全文摘要完形、句子重排、概念关系图、背诵段落
 
-输出为单个自包含 HTML 文件，保存到 `~/Desktop/English Learning/` 目录。划词翻译需要联网。
+输出为单个自包含 HTML 文件，保存到 `~/Desktop/English Learning/articles/` 目录（按类型分目录，与 english-writing 的 `essays/`、`corrections/` 同款布局；汇总复习页 `review-all.html` 在上一级根目录）。划词翻译需要联网。
 
 **模板自动处理的功能（无需在数据中指定）**：
 - 单词释义练习从单词本自动生成，三种题型交叉出题：英→中、中→英、选词填空（每题带文章原句语境，目标词高亮）
@@ -379,12 +379,12 @@ template = (SKILL_DIR / "template.html").read_text("utf-8")
 data_json = json.dumps(article_data, ensure_ascii=False).replace("</", "<\\/")  # article_data 是组装好的字典
 html = template.replace("{{ARTICLE_DATA_JSON}}", data_json)
 slug = article_data["id"]  # 用文章 slug 命名，与入口 2 的扫描模式一致
-out = Path.home() / "Desktop" / "English Learning" / f"{slug}-reading.html"
+out = Path.home() / "Desktop" / "English Learning" / "articles" / f"{slug}-reading.html"
 out.parent.mkdir(parents=True, exist_ok=True)
 out.write_text(html, "utf-8")  # 注意 () 包裹：/ 优先级低于 . ，否则会对 str 调 write_text 报错
 ```
 
-或手动替换：读取模板文件，将 `{{ARTICLE_DATA_JSON}}` 替换为 JSON 字符串（注意 `content` 字段中 HTML 标签和引号的转义）。保存为 `{slug}-reading.html` 到 `~/Desktop/English Learning/`。
+或手动替换：读取模板文件，将 `{{ARTICLE_DATA_JSON}}` 替换为 JSON 字符串（注意 `content` 字段中 HTML 标签和引号的转义）。保存为 `{slug}-reading.html` 到 `~/Desktop/English Learning/articles/`。
 
 ### Step 7: 交付
 
@@ -406,7 +406,7 @@ out.write_text(html, "utf-8")  # 注意 () 包裹：/ 优先级低于 . ，否�
 ## 前置条件（入口 2 特有）
 
 - **阅读文件**：需要至少一个由入口 1 生成的 `*-reading.html` 文件。
-- **文件位置**：所有阅读文件必须在**同一目录**中（默认 `~/Desktop/English Learning/`）。复习页面也生成到该目录，文章链接为相对路径，必须同目录才能点击跳转。
+- **文件位置**：阅读页统一放在 `~/Desktop/English Learning/articles/`（入口 1 的产出目录，所有阅读文件同目录）。复习页生成到上一级根目录 `~/Desktop/English Learning/`（与 english-writing 的 `review-corrections.html` 同款布局），文章链接为相对路径 `articles/<文件名>`。`build_review.py` 扫描时也优先找 `articles/` 子目录，目录里没有则回退扫目录本身（兼容旧平铺文件与自定义目录）。
 - **文件命名**：必须匹配 `*-reading.html` 模式（如 `sunshine-policy-reading.html`），否则扫描不到。
 
 ## Workflow
@@ -417,7 +417,7 @@ out.write_text(html, "utf-8")  # 注意 () 包裹：/ 优先级低于 . ，否�
 python3 <本 skill 安装目录>/build_review.py [目录] [输出路径]
 ```
 
-脚本自动完成：扫描目录下的 `*-reading.html` → 正则提取每个文件里的 `ARTICLE_DATA` JSON → 汇总词典（`masterVocab`，跨文章去重、记录出现于哪些文章）与句型库（`allPatterns`，标注来源文章）→ 从 `content` 为每个词提取例句 → 注入 `review-template.html` 输出 `review-all.html`。macOS 上若目录枚举被 TCC 拦截（如未授权的 ~/Desktop），脚本会自动尝试借 Finder 枚举，只需在弹窗里允许一次。
+脚本自动完成：扫描 `<目录>/articles/`（为空则回退扫 `<目录>` 本身）下的 `*-reading.html` → 正则提取每个文件里的 `ARTICLE_DATA` JSON → 汇总词典（`masterVocab`，跨文章去重、记录出现于哪些文章）与句型库（`allPatterns`，标注来源文章）→ 从 `content` 为每个词提取例句 → 注入 `review-template.html` 输出 `review-all.html` 到 `<目录>` 根目录（文章链接自动带 `articles/` 相对前缀）。macOS 上若目录枚举被 TCC 拦截（如未授权的 ~/Desktop），脚本会自动尝试借 Finder 枚举，只需在弹窗里允许一次。
 
 向后兼容：旧版（无句型数据）的阅读文件也能正常汇总，只是"句型"tab 内容较少。同一词在多篇文章出现时 `count > 1`，这些是最值得优先掌握的核心词。复习进度不持久化——每次打开都是全新一轮（保持简单）。
 
@@ -470,7 +470,7 @@ ls -t ~/Downloads/wordbank-export*.txt | head -1
 - **概念图坐标**：只需大致合理即可，力导向布局会自动优化。重点关注概念选择和关系标签的质量，而非坐标精度。
 - **文章内容 HTML**：段落用 `<p>` 标签，保留原文结构。不要用纯文本换行。
 - **Step 5.5 校验不可跳过**：历史上两次出 bug 都是因为 LLM 编造了不在原文中的 `source`/`text`，或题目正确选项引入了输入中没有的信息。校验脚本必须在每次生成后运行，不通过不许保存。
-- **入口 2 依赖入口 1 的产出**：文件命名（`*-reading.html`）、目录（`~/Desktop/English Learning/`）、数据格式（`ARTICLE_DATA` 里的 `dictionary` / `exercises.sentencePatterns`）都是两个入口的契约，改任何一侧都要想到另一侧。
+- **入口 2 依赖入口 1 的产出**：文件命名（`*-reading.html`）、目录（`~/Desktop/English Learning/articles/`，复习页在其上一级）、数据格式（`ARTICLE_DATA` 里的 `dictionary` / `exercises.sentencePatterns`）都是两个入口的契约，改任何一侧都要想到另一侧。
 
 ## 文件一览
 

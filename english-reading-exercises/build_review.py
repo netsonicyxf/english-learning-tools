@@ -3,8 +3,13 @@
 Build review HTML from all *-reading.html files.
 Scans Desktop (or specified directory) for reading HTML files,
 extracts ARTICLE_DATA from each, aggregates into a review page.
+
+布局（与 english-writing 的分类目录同款）：阅读页在 <目录>/articles/，
+复习页 review-all.html 输出在 <目录> 根目录；articles/ 为空时回退扫
+<目录> 本身（兼容旧平铺布局与用户自定义目录）。
 """
 import json
+import os
 import re
 import sys
 import glob
@@ -14,10 +19,11 @@ from datetime import datetime
 
 TEMPLATE = Path(__file__).resolve().parent / "review-template.html"
 DEFAULT_DIR = str(Path.home() / "Desktop" / "English Learning")
+ARTICLES_SUBDIR = "articles"  # 阅读页（*-reading.html）所在子目录
 
 
-def list_reading_files(directory):
-    """Enumerate *-reading.html in directory.
+def _enumerate_dir(directory):
+    """Enumerate *-reading.html in one directory.
 
     macOS TCC can block directory listing (glob silently returns nothing)
     while read/write by exact path still works — e.g. ~/Desktop for agents
@@ -40,6 +46,16 @@ def list_reading_files(directory):
                 return sorted(str(Path(directory) / n) for n in names)
         except Exception:
             pass
+    return []
+
+
+def list_reading_files(base_dir):
+    """Find *-reading.html under base_dir: prefer articles/ subdir,
+    fall back to base_dir itself (legacy flat layout / custom directory)."""
+    for d in (Path(base_dir) / ARTICLES_SUBDIR, Path(base_dir)):
+        files = _enumerate_dir(d)
+        if files:
+            return files
     return []
 
 
@@ -107,14 +123,18 @@ def find_example_sentence(word, sentences):
 
 
 def build_review(directory=DEFAULT_DIR, output=None):
-    """Build review HTML from all reading files in directory."""
+    """Build review HTML from all reading files under directory."""
     files = list_reading_files(directory)
     if not files:
-        print(f"No *-reading.html files found in {directory}")
+        print(f"No *-reading.html files found under {directory} "
+              f"(looked in {ARTICLES_SUBDIR}/ subdir and the directory itself)")
         print("(If this is ~/Desktop and the terminal lacks permission, "
               "grant Desktop access in System Settings > Privacy & Security, "
               "or approve the Finder automation prompt.)")
         sys.exit(1)
+    if output is None:
+        output = str(Path(directory) / "review-all.html")
+    out_dir = Path(output).resolve().parent
 
     print(f"Found {len(files)} reading file(s):")
     articles_meta = []
@@ -138,6 +158,12 @@ def build_review(directory=DEFAULT_DIR, output=None):
 
         print(f"  ✓ {title} ({len(dictionary)} words, {len(patterns)} patterns)")
 
+        # 复习页与阅读页可能不在同一目录（articles/ 子目录），
+        # 链接按复习页所在目录算相对路径
+        rel_dir = os.path.relpath(Path(fpath).resolve().parent, out_dir)
+        file_ref = (Path(fpath).name if rel_dir == "."
+                    else f"{rel_dir}/{Path(fpath).name}")
+
         articles_meta.append({
             "id": art_id,
             "title": title,
@@ -145,7 +171,7 @@ def build_review(directory=DEFAULT_DIR, output=None):
             "vocabCount": len(dictionary),
             "patternCount": len(patterns),
             "date": mod_time,
-            "fileName": Path(fpath).name,
+            "fileName": file_ref,
         })
 
         # Aggregate vocabulary
@@ -196,8 +222,6 @@ def build_review(directory=DEFAULT_DIR, output=None):
     data_json = json.dumps(review_data, ensure_ascii=False).replace("</", "<\\/")
     html_output = template.replace("{{REVIEW_DATA_JSON}}", data_json)
 
-    if output is None:
-        output = str(Path(directory) / "review-all.html")
     Path(output).write_text(html_output, "utf-8")
 
     # Vocab export for the vocab-drill pipeline: raw material for --add/--card.
