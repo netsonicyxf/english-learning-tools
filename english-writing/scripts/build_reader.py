@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Build the IELTS model-essay reader HTML from a JSON data blob."""
-import json, sys, argparse
+import json, sys, argparse, subprocess
 from pathlib import Path
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
 TEMPLATE = SKILL_DIR / "templates" / "reader.html"
-OUT_DIR = Path.home() / "Desktop" / "English Writing"
+OUT_DIR = Path.home() / "Desktop" / "English Writing" / "essays"
 
 
 def main():
@@ -32,16 +32,14 @@ def main():
     out = Path(args.out) if args.out else (OUT_DIR / f"{data['id']}-reader.html")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html, "utf-8")
-    # the reader's 「词汇库」button links to ./my-library.html, so build it next to
-    # this page rather than in OUT_DIR — otherwise --out elsewhere gives a 404.
+    # the reader's 「词汇库」button links to ./my-library.html — keep a fresh
+    # copy next to every build (not only when missing) so it never goes stale.
     lib_view = out.parent / "my-library.html"
-    if not lib_view.exists():
-        import subprocess
-        subprocess.run(
-            [sys.executable, str(SKILL_DIR / "scripts" / "build_library_view.py"),
-             "--out", str(lib_view)],
-            check=False,
-        )
+    subprocess.run(
+        [sys.executable, str(SKILL_DIR / "scripts" / "build_library_view.py"),
+         "--out", str(lib_view)],
+        check=False,
+    )
     print(f"✅ 阅读页已生成: {out}")
 
 

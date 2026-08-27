@@ -19,19 +19,19 @@ Data (via --data-file or --data):
 Validation (required fields, unique ids) is built in — no separate
 validate_data.py kind needed for collections.
 """
-import json, sys, argparse
+import json, sys, argparse, subprocess
 from pathlib import Path
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
 TEMPLATE = SKILL_DIR / "templates" / "collection.html"
-OUT_DIR = Path.home() / "Desktop" / "English Writing"
+OUT_DIR = Path.home() / "Desktop" / "English Writing" / "essays"
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--data", help="JSON string of collection data")
     ap.add_argument("--data-file", help="path to JSON file of collection data")
-    ap.add_argument("--out", help="output HTML path (默认 ~/Desktop/English Writing/<id>-reader.html)")
+    ap.add_argument("--out", help="output HTML path (默认 ~/Desktop/English Writing/essays/<id>-reader.html)")
     args = ap.parse_args()
 
     data = json.loads(Path(args.data_file).read_text("utf-8")) if args.data_file else json.loads(args.data)
@@ -60,15 +60,14 @@ def main():
     out = Path(args.out) if args.out else (OUT_DIR / f"{data['id']}-reader.html")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html, "utf-8")
-    # the 「词汇库」button links to ./my-library.html — build it alongside if missing
+    # the 「词汇库」button links to ./my-library.html — keep a fresh copy next
+    # to every build (not only when missing) so it never goes stale.
     lib_view = out.parent / "my-library.html"
-    if not lib_view.exists():
-        import subprocess
-        subprocess.run(
-            [sys.executable, str(SKILL_DIR / "scripts" / "build_library_view.py"),
-             "--out", str(lib_view)],
-            check=False,
-        )
+    subprocess.run(
+        [sys.executable, str(SKILL_DIR / "scripts" / "build_library_view.py"),
+         "--out", str(lib_view)],
+        check=False,
+    )
     print(f"✅ 合集阅读页已生成: {out}（{len(essays)} 篇，{out.stat().st_size // 1024} KB）")
 
 

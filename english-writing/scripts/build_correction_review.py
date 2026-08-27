@@ -14,6 +14,7 @@ from datetime import datetime
 SKILL_DIR = Path(__file__).resolve().parent.parent
 TEMPLATE = SKILL_DIR / "templates" / "review-corrections.html"
 DEFAULT_DIR = Path.home() / "Desktop" / "English Writing"
+DEFAULT_OUT = DEFAULT_DIR / "corrections" / "review-corrections.html"
 LOG_FILE = Path.home() / "Documents" / "english-writing" / "corrections-log.jsonl"
 
 # Errors are grouped by the annotation's IELTS band dimension. Comments are
@@ -113,9 +114,12 @@ def build_review(correction_dir=DEFAULT_DIR, output=None):
         history.append(normalize_record(rec))
 
     # 2. Legacy fallback: correction HTMLs built before logging existed.
+    #    Recursive scan from the root — corrections now default to the
+    #    corrections/ subfolder, but older flat files must still be found.
     #    mtime is the best available timestamp — and unlike datetime.now(),
     #    it doesn't drift forward on every rebuild of this page.
-    for fpath in sorted(glob.glob(str(correction_dir / "*-correction.html"))):
+    for fpath in sorted(glob.glob(str(correction_dir / "**" / "*-correction.html"),
+                                  recursive=True)):
         data = extract_correction_data(Path(fpath).read_text("utf-8"))
         if not data or not data.get("id") or data["id"] in logged_slugs:
             continue
@@ -149,7 +153,7 @@ def build_review(correction_dir=DEFAULT_DIR, output=None):
     html_output = html_output.replace("{{TIMESTAMP}}", review_data["generated"])
 
     if output is None:
-        output = str(correction_dir / "review-corrections.html")
+        output = str(DEFAULT_OUT)
     Path(output).write_text(html_output, "utf-8")
 
     print(f"\n✓ 汇总页: {output}")
@@ -161,7 +165,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(
         description="生成雅思批改进度汇总页（log 为主数据源，HTML 兜底）")
     ap.add_argument("--dir", default=str(DEFAULT_DIR),
-                    help="批改 HTML 所在目录（仅用于兜底扫描无 log 的旧文件）")
+                    help="兜底扫描的根目录（递归找无 log 的旧批改页）")
     ap.add_argument("--out", default=None, help="输出 HTML 路径")
     args = ap.parse_args()
     build_review(args.dir, args.out)

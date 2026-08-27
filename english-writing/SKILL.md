@@ -12,7 +12,7 @@ description: "雅思写作练习系统：两个入口 —— (1) 范文收录：
 - **Python 3**：用脚本把 JSON 注入 HTML 模板（避免手工转义出错）。
 - **浏览器**：生成的 HTML 用浏览器打开即可交互。
 - **本 skill 目录**：脚本与模板都相对 `SKILL.md` 所在目录定位，不要写死绝对路径。
-- **生成文件目录**：`~/Desktop/English Writing/`（首次运行自动创建）。
+- **生成文件目录**：`~/Desktop/English Writing/`（首次运行自动创建），按类型分子目录：`essays/` 范文阅读页（含 `my-library.html` 词汇库浏览页）、`corrections/` 批改页与进度汇总、`writing/` 独立写作页。
 
 ## 核心概念
 
@@ -63,7 +63,7 @@ agent 在对话里收到用户粘贴的内容时：
 ### Step 3：生成阅读页（build_reader.py）
 把上面的 JSON 写入 `/tmp/english-<slug>-reader.json`，然后：
 ```bash
-python3 "<skill>/scripts/build_reader.py" --data-file /tmp/english-<slug>-reader.json --out ~/Desktop/English\ Writing/<slug>-reader.html
+python3 "<skill>/scripts/build_reader.py" --data-file /tmp/english-<slug>-reader.json --out ~/Desktop/English\ Writing/essays/<slug>-reader.html
 ```
 脚本把数据注入 `templates/reader.html`（`{{READER_DATA_JSON}}` 占位），写出自包含 HTML。用 `present_files` 或告知路径，让用户在浏览器打开。
 
@@ -98,7 +98,7 @@ python3 "<skill>/scripts/build_reader.py" --data-file /tmp/english-<slug>-reader
    - `content` 题目放开头 `<blockquote>`、正文一段一个 `<p>`；`(295 words, band 9)` 这类尾注移进该篇 `source`（目录卡片上显示），不进正文。
    - 篇数多时先把各篇分给并行子代理生成（各写各的 JSON），再合并成 `essays` 数组。
    ```bash
-   python3 "<skill>/scripts/build_collection.py" --data-file /tmp/english-<slug>-collection.json --out ~/Desktop/English\ Writing/<slug>-reader.html
+   python3 "<skill>/scripts/build_collection.py" --data-file /tmp/english-<slug>-collection.json --out ~/Desktop/English\ Writing/essays/<slug>-reader.html
    ```
    产物是**一个**自包含 HTML：打开先是目录，点任意篇进入阅读（URL `#e=<篇id>` 可直达/收藏），「目录」按钮或篇末「目录」返回，底部「上一篇 / 下一篇」顺序刷。每篇词典与单词本独立，划词收录行为与单篇范文完全一致。脚本自带校验（必填字段 + id 唯一）。
 
@@ -158,7 +158,7 @@ python3 "<skill>/scripts/import_vocab_drill.py"          # 加 --dry-run 可先�
 ```
 `minutes` 只是弹窗的预填默认值（首次打开时用；之后记住上次选择，localStorage）。
 ```bash
-python3 "<skill>/scripts/build_writer.py" --data '<上面的 JSON>' --out ~/Desktop/English\ Writing/<slug>-writer.html
+python3 "<skill>/scripts/build_writer.py" --data '<上面的 JSON>' --out ~/Desktop/English\ Writing/writing/<slug>-writer.html
 ```
 写作页内置：题目展示、打开时弹窗自选倒计时时长（快捷 20/40/45/60 分钟或自定义，确认后才开始计时；计时中可「改时间」/暂停/重置）、文本框、字数与段落数实时统计、「提交」按钮（复制作文到剪贴板，格式以 `[English 作文]` 开头含 `essay:` 块）。用户写完粘贴回对话框 → 走下方批改。
 
@@ -202,7 +202,7 @@ python3 "<skill>/scripts/manage_library.py" --print
 先写 `/tmp/english-<slug>-correction.json`（**必须用 `--data-file`**：作文里的撇号会截断 shell 单引号），校验后生成：
 ```bash
 python3 "<skill>/scripts/validate_data.py" --kind correction --data-file /tmp/english-<slug>-correction.json
-python3 "<skill>/scripts/build_correction.py" --data-file /tmp/english-<slug>-correction.json --out ~/Desktop/English\ Writing/<slug>-correction.html
+python3 "<skill>/scripts/build_correction.py" --data-file /tmp/english-<slug>-correction.json --out ~/Desktop/English\ Writing/corrections/<slug>-correction.html
 ```
 模板渲染：左侧作文正文（按段，annotations 片段高亮、悬停/点击看批注），右侧批注栏（按段分组，含 band 标签与建议 chip），顶部四项分数 + 总评，底部「在原文基础上修改 / 重写」两种重写模式（带 `topic` 打开写作模板进入新一轮）。
 
@@ -216,11 +216,11 @@ python3 "<skill>/scripts/build_correction_review.py"
 ```
 - 数据源是 `~/Documents/english-writing/corrections-log.jsonl`（每次批改由 build_correction.py 自动追加，含批注明细）——log 是数据，HTML 是渲染产物，不要从批改页反解数据
 - 兜底：log 功能上线前生成的旧批改页会被扫描收录，时间线取文件修改时间
-- 输出 `~/Desktop/English Writing/review-corrections.html`：
+- 输出 `~/Desktop/English Writing/corrections/review-corrections.html`：
   - 分数折线图（Overall / TA / CC / LR / GRA；Chart.js 走 CDN，离线时自动降级，数据以下方表格为准）
   - 高频问题统计：error 批注按雅思评分维度归类（GRA 语法 / LR 词汇 / CC 结构衔接 / TA 任务回应）
   - 历次批改记录表格（按时间排序）
-- 可选参数：`--dir` 指定批改页目录（兜底扫描用）、`--out` 指定输出路径
+- 可选参数：`--dir` 指定兜底扫描根目录（递归查找，默认覆盖 `corrections/` 子目录及旧的平铺文件）、`--out` 指定输出路径
 
 ---
 
@@ -236,7 +236,7 @@ python3 "<skill>/scripts/build_correction_review.py"
 - **校验**：组装完批改/阅读 JSON 后，用 `scripts/validate_data.py` 跑一遍基本校验（批注 text 在 essay 中、分数范围合理），不通过则修正后重生成。
 
 ## 脚本一览
-- `build_reader.py`：范文 → 阅读页（入口 1）。顺带在同目录建 `my-library.html`（若不存在）。
+- `build_reader.py`：范文 → 阅读页（入口 1）。顺带在同目录刷新 `my-library.html`（每次随建随刷，避免过期）。
 - `parse_document.py`：批量解析第一步，pdf/docx/doc/rtf/html/txt/md → 纯文本（PDF 带 `===== PAGE N =====` 标记，扫描版会提示改用 Read 按页读；docx 用标准库跨平台直解）。
 - `build_collection.py`：多篇范文 → **单页合集**阅读页（内置目录切篇、上一篇/下一篇，校验必填字段与 id 唯一）。
 - `build_writer.py`：题目 → 写作页 + 倒计时（入口 2a）。
