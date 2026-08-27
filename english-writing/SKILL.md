@@ -116,9 +116,16 @@ python3 "<skill>/scripts/build_reader.py" --data-file /tmp/english-<slug>-reader
    python3 "<skill>/scripts/extract_dictionary.py" --out /tmp/english-dict.json
    ```
    注意：浏览器 localStorage 里用户**划过**的词，agent 从磁盘读不到（浏览器私有存储）；
-   抽的是全量词典。但 `my-library.html` 打开时会**实时读 localStorage** 汇总展示划词词本
-   （与阅读 skill 复习页的 mergeWordBank 同款机制），用户在那里能看到自己划过的词；
-   若用户只想收划过的那几个词，让其从该页复制贴出来即可。
+   抽的是全量词典。两种收划过词的方式：
+   - **主路（一次点击）**：用户在 `my-library.html` 的划词词本区点「⬇ 导出词单」→
+     下载 `english-wordbank-export.txt`（word/释义/原句 三列，落在浏览器默认下载目录），
+     词单同时进剪贴板。之后用户说「入库我划的词」，agent 直接读该文件：
+     ```bash
+     ls -t ~/Downloads/english-wordbank-export*.txt | head -1
+     ```
+     （浏览器可能给重名文件加 "(1)" 后缀，按修改时间取最新。）
+   - 兜底：用户把词复制贴出来。
+   `my-library.html` 打开时本就会实时读 localStorage 汇总划词词本，用户能看到自己划了什么。
 
 1. **先读已有组名**，避免把 `重要的` 和 `重要/起作用` 拆成两个近义组：
    ```bash

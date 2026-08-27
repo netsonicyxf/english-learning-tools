@@ -78,6 +78,10 @@ h2{font-size:16px;font-weight:800;color:var(--amber);margin:28px 0 10px}
 .ungr{margin-top:24px}
 .empty{color:var(--muted);text-align:center;padding:40px}
 .hint{font-size:12px;color:var(--muted);margin-top:8px}
+.wb-head{display:flex;align-items:center;gap:12px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px dashed rgba(180,83,9,.3)}
+.wb-head .group-title{margin:0;padding:0;border:none}
+.wb-export{padding:5px 12px;border:1.5px solid var(--amber);border-radius:6px;background:var(--white);font-size:12px;font-weight:700;color:var(--amber);cursor:pointer;margin-left:auto;flex-shrink:0}
+.wb-export:hover{background:var(--amber);color:var(--white)}
 </style>
 </head>
 <body>
@@ -154,7 +158,8 @@ function renderWordBank(f){
     $wordbank.innerHTML = '<div class="group wb"><div class="empty">还没有划词记录 —— 打开任意阅读页，选中词即可收藏；本页刷新后出现在这里</div></div>';
     return;
   }
-  let html = '<div class="group wb"><div class="group-title">划过的词 ('+matched.length+')</div><div class="items">';
+  let html = '<div class="group wb"><div class="wb-head"><div class="group-title">划过的词 ('+matched.length+')</div>'+
+    '<button class="wb-export" id="wb-export">⬇ 导出词单</button></div><div class="items">';
   matched.forEach(w => {
     html += '<div class="item"><div><div class="item-term">'+esc(w.text)+'</div>'+
       (w.context?'<div class="item-example">'+esc(w.context)+'</div>':'')+
@@ -199,6 +204,25 @@ $search.addEventListener('input', ()=>{
   const f = $search.value;
   renderWordBank(f.toLowerCase());
   render(f);
+});
+
+// === 导出词单（一次点击代替手动复制；浏览器不允许页面悄悄写磁盘，这是必经的用户动作）===
+// 下载 word/释义/原句 三列 txt（浏览器默认下载目录，文件名固定），词单同时进剪贴板。
+// 之后对 agent 说「入库我划的词」即可，agent 按文件名去下载目录找最新的。
+$wordbank.addEventListener('click', ev => {
+  if(ev.target.id !== 'wb-export') return;
+  if(!WORDS.length) return;
+  const lines = WORDS.map(w => [w.text, w.translation, w.context].join('\\t'));
+  const blob = new Blob([lines.join('\\n')], {type:'text/plain;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'english-wordbank-export.txt';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+  try{ navigator.clipboard.writeText(WORDS.map(w=>w.text).join(', ')).catch(()=>{}); }catch(e){}
+  const btn = ev.target;
+  btn.textContent = '✓ 已下载 english-wordbank-export.txt';
+  setTimeout(()=>{ btn.textContent = '⬇ 导出词单'; }, 3000);
 });
 renderStats();
 renderWordBank('');
