@@ -114,16 +114,20 @@ python3 "<skill>/scripts/build_reader.py" --data-file /tmp/english-<slug>-reader
 「入库」「存进词汇库」「同步一下」时才做。两种词源，按用户意图选：
 
 **词源 A：用户划过的词/词组（「导入素材库」默认指这个）**
-0. 先找导出文件（用户在 `my-library.html` 划词词本区点过「⬇ 导出词单」就会生成）：
+0. **懒导入（每次 english-writing 会话开始先做，不用等口令）**：用户点「⬇ 导出词单」
+   就是导入意图。任何会话开始（批改/收录/看库，无论用户来干什么）先查：
    ```bash
    ls -t ~/Downloads/english-wordbank-export*.txt | head -1
    ```
-   （浏览器可能给重名文件加 "(1)" 后缀，按修改时间取最新。）
-   - 找到 → 直接读（word/释义/原句 三列 tab 分隔），**词组照收**（term 允许多词短语）。
-   - 没找到 → 提示用户：打开 `essays/my-library.html` 点一下「⬇ 导出词单」，再回来
-     说一声即可。这一步点击无法省略：浏览器沙箱不允许页面悄悄写磁盘，agent 也读不到
-     浏览器内部存储，localStorage → 磁盘文件必须经用户之手（阅读 skill 的「导出词本」
-     按钮同理）。不要退回让用户手动复制粘贴。
+   对比 `~/Documents/english-writing/wordbank-import-state.json` 记录的上次导入时间
+   （无此文件视为从未导入）。文件比记录新（或从未导入过且文件存在）→ **静默自动导入**
+   （读词聚类走下面的步骤），完成后把新时间写回 state 文件，并向用户提一句已导入。
+   导入幂等（同组同名 term 自动跳过），重复检测无害。
+1. 口令「导入素材库」仍然有效：用户说了就立即执行同一流程（不看 state，强制重扫）。
+2. 完全找不到导出文件时才提示用户：打开 `essays/my-library.html` 点一下「⬇ 导出词单」。
+   这一 click 无法省略：浏览器沙箱不允许页面悄悄写磁盘，agent 也读不到浏览器内部存储，
+   localStorage → 磁盘文件必须经用户之手（阅读 skill 的「导出词本」按钮同理）。
+   不要退回让用户手动复制粘贴。
 
 **词源 B：全量词典（用户说「入库」「把这篇的词都收进素材库」）**
 0. 阅读页/合集页生成时已把每篇词典内嵌进 HTML，`extract_dictionary.py` 直接从 `essays/`
@@ -134,14 +138,14 @@ python3 "<skill>/scripts/build_reader.py" --data-file /tmp/english-<slug>-reader
    从抽出的词典里**筛值得做替换建议的词**（素材库是同义替换库，主题名词/基础词不必进）。
    `my-library.html` 打开时本就会实时读 localStorage 汇总划词词本，用户能看到自己划了什么。
 
-1. **先读已有组名**，避免把 `重要的` 和 `重要/起作用` 拆成两个近义组：
+2. **先读已有组名**，避免把 `重要的` 和 `重要/起作用` 拆成两个近义组：
    ```bash
    python3 "<skill>/scripts/manage_library.py" --print
    ```
    合并靠 `group_meaning_zh` 的归一化字符串精确匹配（去掉非字母数字后小写比较），**不做语义判断**。
    所以复用已存在的组名是 agent 的责任：能归进已有组就用那个组的原文组名，别造新说法。
 
-2. **聚类并入库**（两种词源共用）。把词按语义归组写入 `/tmp/english-lib-add.json`
+3. **聚类并入库**（两种词源共用）。把词按语义归组写入 `/tmp/english-lib-add.json`
    （划词词单的第三列原句可作 `example`；词组 term 照收）：
    ```json
    {"items":[
@@ -155,7 +159,7 @@ python3 "<skill>/scripts/build_reader.py" --data-file /tmp/english-<slug>-reader
    `group_meaning_zh` 留空的条目会进 `ungrouped`，批改时取不到 —— 尽量都给组名。
    同组内同名 term 自动跳过，重复入库安全。
 
-3. **刷新浏览页**（可选，用户想看库时）：
+4. **刷新浏览页**（可选，用户想看库时）：
    ```bash
    python3 "<skill>/scripts/build_library_view.py"
    ```
