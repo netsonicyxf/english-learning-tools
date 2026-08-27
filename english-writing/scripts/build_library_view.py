@@ -80,8 +80,20 @@ h2{font-size:16px;font-weight:800;color:var(--amber);margin:28px 0 10px}
 .hint{font-size:12px;color:var(--muted);margin-top:8px}
 .wb-head{display:flex;align-items:center;gap:12px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px dashed rgba(180,83,9,.3)}
 .wb-head .group-title{margin:0;padding:0;border:none}
-.wb-export{padding:5px 12px;border:1.5px solid var(--amber);border-radius:6px;background:var(--white);font-size:12px;font-weight:700;color:var(--amber);cursor:pointer;margin-left:auto;flex-shrink:0}
-.wb-export:hover{background:var(--amber);color:var(--white)}
+.wb-btn{padding:5px 12px;border:1.5px solid var(--amber);border-radius:6px;background:var(--white);font-size:12px;font-weight:700;color:var(--amber);cursor:pointer;flex-shrink:0}
+.wb-btn:hover{background:var(--amber);color:var(--white)}
+.wb-head .wb-mode{margin-left:auto}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
+.card{perspective:600px;cursor:pointer}
+.card-inner{position:relative;height:130px;transition:transform .35s;transform-style:preserve-3d}
+.card.flipped .card-inner{transform:rotateY(180deg)}
+.card-face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;text-align:center;padding:10px 12px;background:var(--white);border:2px solid var(--amber);border-radius:10px;box-shadow:3px 3px 0 rgba(180,83,9,.35)}
+.card-front .w{font-family:Georgia,serif;font-size:19px;font-weight:700;color:#1a1a2e;line-height:1.3}
+.card-front .t{font-size:10px;color:var(--muted);letter-spacing:.5px}
+.card-back{transform:rotateY(180deg);background:#fff7e6}
+.card-back .m{font-size:14px;font-weight:600;color:var(--ink)}
+.card-back .c{font-size:11px;color:var(--muted);font-style:italic;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+.card-back .s{font-size:10px;color:var(--amber);font-weight:600}
 </style>
 </head>
 <body>
@@ -142,6 +154,7 @@ function loadWordBank(){
 }
 
 let WORDS = loadWordBank();
+let WB_MODE = 'cards';
 
 function renderStats(){
   $stats.innerHTML =
@@ -158,15 +171,33 @@ function renderWordBank(f){
     $wordbank.innerHTML = '<div class="group wb"><div class="empty">还没有划词记录 —— 打开任意阅读页，选中词即可收藏；本页刷新后出现在这里</div></div>';
     return;
   }
-  let html = '<div class="group wb"><div class="wb-head"><div class="group-title">划过的词 ('+matched.length+')</div>'+
-    '<button class="wb-export" id="wb-export">⬇ 导出词单</button></div><div class="items">';
-  matched.forEach(w => {
-    html += '<div class="item"><div><div class="item-term">'+esc(w.text)+'</div>'+
-      (w.context?'<div class="item-example">'+esc(w.context)+'</div>':'')+
-      '<div class="item-source">来自: '+esc(w.essays.join(' · '))+'</div></div>'+
-      '<div class="item-trans">'+esc(w.translation)+'</div></div>';
-  });
-  $wordbank.innerHTML = html + '</div></div>';
+  let body;
+  if(WB_MODE === 'cards'){
+    // 单词卡：正面单词，点击翻面看释义 + 划词原句 + 来源（仿阅读 skill 复习页）
+    body = '<div class="cards">';
+    matched.forEach(w => {
+      body += '<div class="card"><div class="card-inner">'+
+        '<div class="card-face card-front"><div class="w">'+esc(w.text)+'</div><div class="t">点击翻面</div></div>'+
+        '<div class="card-face card-back"><div class="m">'+esc(w.translation)+'</div>'+
+        (w.context?'<div class="c">'+esc(w.context)+'</div>':'')+
+        '<div class="s">'+esc(w.essays[0]||'')+(w.essays.length>1?' 等'+w.essays.length+'篇':'')+'</div>'+
+        '</div></div></div>';
+    });
+    body += '</div>';
+  } else {
+    body = '<div class="items">';
+    matched.forEach(w => {
+      body += '<div class="item"><div><div class="item-term">'+esc(w.text)+'</div>'+
+        (w.context?'<div class="item-example">'+esc(w.context)+'</div>':'')+
+        '<div class="item-source">来自: '+esc(w.essays.join(' · '))+'</div></div>'+
+        '<div class="item-trans">'+esc(w.translation)+'</div></div>';
+    });
+    body += '</div>';
+  }
+  $wordbank.innerHTML = '<div class="group wb"><div class="wb-head">'+
+    '<div class="group-title">划过的词 ('+matched.length+')</div>'+
+    '<button class="wb-btn wb-mode" id="wb-mode">'+(WB_MODE==='cards'?'☰ 列表':'📇 单词卡')+'</button>'+
+    '<button class="wb-btn" id="wb-export">⬇ 导出词单</button></div>'+ body + '</div>';
 }
 
 function render(filter){
@@ -210,6 +241,12 @@ $search.addEventListener('input', ()=>{
 // 下载 word/释义/原句 三列 txt（浏览器默认下载目录，文件名固定），词单同时进剪贴板。
 // 之后对 agent 说「入库我划的词」即可，agent 按文件名去下载目录找最新的。
 $wordbank.addEventListener('click', ev => {
+  if(ev.target.id === 'wb-mode'){
+    WB_MODE = WB_MODE === 'cards' ? 'list' : 'cards';
+    renderWordBank($search.value.toLowerCase());
+    return;
+  }
+  if(ev.target.closest('.card')){ ev.target.closest('.card').classList.toggle('flipped'); return; }
   if(ev.target.id !== 'wb-export') return;
   if(!WORDS.length) return;
   const lines = WORDS.map(w => [w.text, w.translation, w.context].join('\\t'));
