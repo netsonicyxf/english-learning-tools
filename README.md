@@ -44,6 +44,8 @@ git clone https://github.com/wanziwan666-crypto/english-learning-tools.git \
 
 三个 skill 保持 `english-learning-tools/<skill>/` 的兄弟布局 —— `import_review_vocab.py` 靠相对路径找 `vocab-drill/vocab.mjs`，必须整套安装这个桥才通。
 
+skill 安装本身不执行任何代码：english-writing 的产出目录 `~/Desktop/English Writing/`（含 `essays/`、`corrections/`、`writing/` 子目录）和 english-reading-exercises 的 `~/Desktop/English Learning/articles/` 都会在安装后的第一次 skill 会话里由 agent 自动创建，无需手动建目录。
+
 ## 更新
 
 已 clone 的用户在仓库目录跑一句即可（也可以让 agent 代跑）：

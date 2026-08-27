@@ -25,6 +25,10 @@ read_when:
 - **WebFetch**：如果用户提供的是 URL（非粘贴文本），agent 需要有网页抓取能力。部分网站（如 Notion）需要 JS 渲染，可能抓取失败，此时提示用户粘贴正文。
 - **Python 3**：推荐用 Python 脚本生成 HTML（避免 JSON 转义错误）。手动拼接也可但容易出错。
 - **浏览器**：生成的 HTML 在浏览器中打开即可使用。划词翻译优先查本地词典，查不到时走 Google Translate 免费接口（无需 API Key，但可能受网络限制）。
+- **生成文件目录懒创建（每次会话开始先做，幂等）**：产出目录是 `~/Desktop/English Learning/`（阅读页在 `articles/` 子目录，复习页在根目录，见入口 2 前置条件）。skill 安装只是复制文件、不会执行任何代码，所以**每次会话开始（无论用户来干什么）**先跑一句，首次安装后的第一次会话就把目录建好，用户无需手动创建（与 english-writing 的懒建目录同款）：
+  ```bash
+  mkdir -p ~/Desktop/English\ Learning/articles
+  ```
 
 ## 入口判定
 

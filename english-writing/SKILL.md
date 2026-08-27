@@ -12,7 +12,12 @@ description: "雅思写作练习系统：两个入口 —— (1) 范文收录：
 - **Python 3**：用脚本把 JSON 注入 HTML 模板（避免手工转义出错）。
 - **浏览器**：生成的 HTML 用浏览器打开即可交互。
 - **本 skill 目录**：脚本与模板都相对 `SKILL.md` 所在目录定位，不要写死绝对路径。
-- **生成文件目录**：`~/Desktop/English Writing/`（首次运行自动创建），按类型分子目录：`essays/` 范文阅读页（含 `my-library.html` 素材库浏览页）、`corrections/` 批改页、`writing/` 独立写作页；进度汇总 `review-corrections.html` 固定在根目录（每次删旧建新）。
+- **生成文件目录**：`~/Desktop/English Writing/`，按类型分子目录：`essays/` 范文阅读页（含 `my-library.html` 素材库浏览页）、`corrections/` 批改页、`writing/` 独立写作页；进度汇总 `review-corrections.html` 固定在根目录（每次删旧建新）。
+- **目录骨架懒创建（每次会话开始先做，幂等）**：skill 安装只是复制文件、不会执行任何代码，所以「安装即有目录」落地为——**每次 english-writing 会话开始（无论用户来干什么，批改/收录/看库都算）**先跑一句，首次安装后的第一次会话就把 `English Writing` 文件夹连子目录建好，用户无需手动创建：
+  ```bash
+  mkdir -p ~/Desktop/English\ Writing/{essays,corrections,writing}
+  ```
+  各 build 脚本对输出路径另有 `mkdir -p` 兜底，双保险。
 
 ## 核心概念
 
