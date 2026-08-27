@@ -70,8 +70,8 @@ python3 "<skill>/scripts/build_reader.py" --data-file /tmp/english-<slug>-reader
 阅读页行为（模板内置，无需在数据中指定）：
 - 鼠标划词 → 自动查本地词典，查不到走免费翻译接口 → 翻译气泡 + **自动收进右侧单词本（localStorage）**。零摩擦，无需任何按钮。
 - 单词本可单条删除。
-- 单词本仅存浏览器（不设导出按钮），它是划词的即时层；个人库走「入库」（词源是页面内嵌词典，
-  见「入库」小节）或「导入 vocab-drill 词库」。
+- 单词本仅存浏览器，它是划词的即时层；沉淀进素材库走顶栏「导入素材库」按钮
+  （见「导入素材库」小节），另有「导入 vocab-drill 词库」旁路。
 
 ### 数据完全在浏览器内
 - 单词本保存在 `localStorage`（key: `english_collect_<slug>`），刷新不丢。
@@ -114,8 +114,10 @@ python3 "<skill>/scripts/build_reader.py" --data-file /tmp/english-<slug>-reader
 「入库」「存进词汇库」「同步一下」时才做。两种词源，按用户意图选：
 
 **词源 A：用户划过的词/词组（「导入素材库」默认指这个）**
-0. **懒导入（每次 english-writing 会话开始先做，不用等口令）**：用户点「⬇ 导出词单」
-   就是导入意图。任何会话开始（批改/收录/看库，无论用户来干什么）先查：
+0. **懒导入（每次 english-writing 会话开始先做，不用等口令）**：用户点「导入素材库」
+   按钮（**阅读页/合集页顶栏主按钮**，my-library 划词词本区有同名按钮）就是导入意图。
+   点击会汇总**所有页面**划过的词（file:// 共享 localStorage，不只当前篇）下载
+   `english-wordbank-export.txt`。任何会话开始（批改/收录/看库，无论用户来干什么）先查：
    ```bash
    ls -t ~/Downloads/english-wordbank-export*.txt | head -1
    ```
@@ -124,10 +126,10 @@ python3 "<skill>/scripts/build_reader.py" --data-file /tmp/english-<slug>-reader
    （读词聚类走下面的步骤），完成后把新时间写回 state 文件，并向用户提一句已导入。
    导入幂等（同组同名 term 自动跳过），重复检测无害。
 1. 口令「导入素材库」仍然有效：用户说了就立即执行同一流程（不看 state，强制重扫）。
-2. 完全找不到导出文件时才提示用户：打开 `essays/my-library.html` 点一下「⬇ 导出词单」。
-   这一 click 无法省略：浏览器沙箱不允许页面悄悄写磁盘，agent 也读不到浏览器内部存储，
-   localStorage → 磁盘文件必须经用户之手（阅读 skill 的「导出词本」按钮同理）。
-   不要退回让用户手动复制粘贴。
+2. 完全找不到导出文件时才提示用户：打开任意阅读页或 `essays/my-library.html` 点
+   「导入素材库」。这一 click 无法省略：浏览器沙箱不允许页面悄悄写磁盘，agent 也读不到
+   浏览器内部存储，localStorage → 磁盘文件必须经用户之手（阅读 skill 的「导出词本」
+   按钮同理）。不要退回让用户手动复制粘贴。
 
 **词源 B：全量词典（用户说「入库」「把这篇的词都收进素材库」）**
 0. 阅读页/合集页生成时已把每篇词典内嵌进 HTML，`extract_dictionary.py` 直接从 `essays/`

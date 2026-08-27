@@ -197,7 +197,7 @@ function renderWordBank(f){
   $wordbank.innerHTML = '<div class="group wb"><div class="wb-head">'+
     '<div class="group-title">划过的词 ('+matched.length+')</div>'+
     '<button class="wb-btn wb-mode" id="wb-mode">'+(WB_MODE==='cards'?'☰ 列表':'📇 单词卡')+'</button>'+
-    '<button class="wb-btn" id="wb-export">⬇ 导出词单</button></div>'+ body + '</div>';
+    '<button class="wb-btn" id="wb-export">⬇ 导入素材库</button></div>'+ body + '</div>';
 }
 
 function render(filter){

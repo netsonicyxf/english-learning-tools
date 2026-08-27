@@ -53,6 +53,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica N
   </div>
   <div class="controls">
     <button class="btn" id="lib-btn">词汇库</button>
+    <button class="btn btn-primary" id="import-lib-btn">导入素材库</button>
   </div>
 </header>
 <main class="reading-view">
@@ -109,6 +110,43 @@ function bindEvents(){
   });
   document.addEventListener('mousedown', e=>{ if(!$tooltip.contains(e.target)) $tooltip.style.display='none'; });
   document.getElementById('lib-btn').addEventListener('click', function(){ window.open('./my-library.html','_blank'); });
+
+  // 导入素材库：汇总所有阅读页的划词词本（file:// 页面共享 localStorage），
+  // 下载 english-wordbank-export.txt（word/释义/原句 三列）。落盘即导入意图，
+  // agent 下次对话自动拾取入库（懒导入），无需再对口令。
+  function flashBtn(btn, msg){
+    const old = btn.textContent;
+    btn.textContent = msg;
+    setTimeout(function(){ btn.textContent = old; }, 3000);
+  }
+  document.getElementById('import-lib-btn').addEventListener('click', function(){
+    const byWord = {};
+    try{
+      for(let i=0;i<localStorage.length;i++){
+        const key = localStorage.key(i);
+        const m = key && key.match(/^(?:english|ielts)_collect_(.+)$/);
+        if(!m) continue;
+        let words;
+        try{ words = JSON.parse(localStorage.getItem(key)); }catch(e){ continue; }
+        if(!Array.isArray(words)) continue;
+        words.forEach(function(w){
+          if(!w || !w.text || !w.translation || w.translation === '（待翻译）') return;
+          const k = 'e' + w.text.toLowerCase();
+          if(!byWord[k]) byWord[k] = [w.text, w.translation, w.context || ''];
+        });
+      }
+    }catch(e){}
+    const rows = Object.values(byWord);
+    if(!rows.length){ flashBtn(this, '还没有可导入的划词'); return; }
+    const blob = new Blob([rows.map(function(r){ return r.join('\t'); }).join('\n')], {type:'text/plain;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'english-wordbank-export.txt';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 5000);
+    try{ navigator.clipboard.writeText(rows.map(function(r){ return r[0]; }).join(', ')).catch(function(){}); }catch(e){}
+    flashBtn(this, '✓ 已提交 · 下次对话自动入库');
+  });
 }
 function handleSelection(e){
   if(e.target.closest('.word-bank-panel,.tooltip,.top-bar')) return;
