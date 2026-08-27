@@ -12,20 +12,20 @@ description: "雅思写作练习系统：两个入口 —— (1) 范文收录：
 - **Python 3**：用脚本把 JSON 注入 HTML 模板（避免手工转义出错）。
 - **浏览器**：生成的 HTML 用浏览器打开即可交互。
 - **本 skill 目录**：脚本与模板都相对 `SKILL.md` 所在目录定位，不要写死绝对路径。
-- **生成文件目录**：`~/Desktop/English Writing/`（首次运行自动创建），按类型分子目录：`essays/` 范文阅读页（含 `my-library.html` 词汇库浏览页）、`corrections/` 批改页与进度汇总、`writing/` 独立写作页。
+- **生成文件目录**：`~/Desktop/English Writing/`（首次运行自动创建），按类型分子目录：`essays/` 范文阅读页（含 `my-library.html` 素材库浏览页）、`corrections/` 批改页与进度汇总、`writing/` 独立写作页。
 
 ## 核心概念
 
 - **单词本（localStorage）**：范文阅读页的划词即收录，跟 `english-reading-exercises` 一样零摩擦 — 划选即存、刷新不丢，无需任何粘贴操作。
 - **两条入口互不依赖**：入口 1 往单词本里「存」好词好句，入口 2 从个人库「取」做批改建议。用户可以只用来收录、只用来批改，或两者配合。
-- **个人库（library.json）**：`~/Documents/english-writing/library.json`，长期积累的同义替换库，按「汉语释义」聚成同义组。单词本是单篇范文的临时产物，个人库是跨范文的长期资产 —— 两者靠**入库**这一步连接（见「入库」小节）。批改时 agent 从库里取替换建议。可选，不影响收录功能。
+- **个人库（library.json）**：`~/Documents/english-writing/library.json`，长期积累的同义替换库，按「汉语释义」聚成同义组。单词本是单篇范文的临时产物，个人库是跨范文的长期资产 —— 两者靠**导入素材库**这一步连接（见「导入素材库」小节）。批改时 agent 从库里取替换建议。可选，不影响收录功能。
 
 ## 接收粘贴内容的判定
 
 agent 在对话里收到用户粘贴的内容时：
 
 - 以 `[English 作文]`（新版写作页）或 `[IELTS 作文]`（旧版页面，同样受理）开头、含 `essay:` 块 → 来自写作页「提交」→ 走 **入口 2 批改**。
-- 每行形如 `词\t释义\t例句` 的多行文本 → 来自 english-reading-exercises 的单词本导出（或手动整理的三列文本）→ 走 **入库**（见下）。
+- 每行形如 `词\t释义\t例句` 的多行文本 → 来自 english-reading-exercises 的单词本导出（或手动整理的三列文本）→ 走 **导入素材库**（词源 A，见下）。
 - 否则按用户的自然语言意图分流（给题目 / 给范文 / 直接贴作文）。
 
 ## 传数据给脚本：优先用 `--data-file`
@@ -77,8 +77,8 @@ python3 "<skill>/scripts/build_reader.py" --data-file /tmp/english-<slug>-reader
 - 单词本保存在 `localStorage`（key: `english_collect_<slug>`），刷新不丢。
 - 划词即收录，不需要粘贴回 agent。
 - 不设导出：单词本只在浏览器内积累与查看。
-- 汇总查看：`my-library.html` 打开时实时读所有阅读页的 localStorage 词本
-  （同浏览器 file:// 页面共享存储），跨篇去重、带来源篇名——不用导出也能总览。
+- 跨篇汇总：阅读页顶栏「导入素材库」按钮会汇总所有页面划过的词（file:// 共享存储），
+  不限当前篇。
 
 ### 批量解析文档（一篇文档 → 单页合集阅读页）
 
@@ -115,7 +115,7 @@ python3 "<skill>/scripts/build_reader.py" --data-file /tmp/english-<slug>-reader
 
 **词源 A：用户划过的词/词组（「导入素材库」默认指这个）**
 0. **懒导入（每次 english-writing 会话开始先做，不用等口令）**：用户点「导入素材库」
-   按钮（**阅读页/合集页顶栏主按钮**，my-library 划词词本区有同名按钮）就是导入意图。
+   按钮（**阅读页/合集页顶栏主按钮**）就是导入意图。
    点击会汇总**所有页面**划过的词（file:// 共享 localStorage，不只当前篇）下载
    `english-wordbank-export.txt`。任何会话开始（批改/收录/看库，无论用户来干什么）先查：
    ```bash
@@ -126,8 +126,7 @@ python3 "<skill>/scripts/build_reader.py" --data-file /tmp/english-<slug>-reader
    （读词聚类走下面的步骤），完成后把新时间写回 state 文件，并向用户提一句已导入。
    导入幂等（同组同名 term 自动跳过），重复检测无害。
 1. 口令「导入素材库」仍然有效：用户说了就立即执行同一流程（不看 state，强制重扫）。
-2. 完全找不到导出文件时才提示用户：打开任意阅读页或 `essays/my-library.html` 点
-   「导入素材库」。这一 click 无法省略：浏览器沙箱不允许页面悄悄写磁盘，agent 也读不到
+2. 完全找不到导出文件时才提示用户：打开任意阅读页点「导入素材库」。这一 click 无法省略：浏览器沙箱不允许页面悄悄写磁盘，agent 也读不到
    浏览器内部存储，localStorage → 磁盘文件必须经用户之手（阅读 skill 的「导出词本」
    按钮同理）。不要退回让用户手动复制粘贴。
 
@@ -138,16 +137,15 @@ python3 "<skill>/scripts/build_reader.py" --data-file /tmp/english-<slug>-reader
    python3 "<skill>/scripts/extract_dictionary.py" --out /tmp/english-dict.json
    ```
    从抽出的词典里**筛值得做替换建议的词**（素材库是同义替换库，主题名词/基础词不必进）。
-   `my-library.html` 打开时本就会实时读 localStorage 汇总划词词本，用户能看到自己划了什么。
 
-2. **先读已有组名**，避免把 `重要的` 和 `重要/起作用` 拆成两个近义组：
+3. **先读已有组名**，避免把 `重要的` 和 `重要/起作用` 拆成两个近义组：
    ```bash
    python3 "<skill>/scripts/manage_library.py" --print
    ```
    合并靠 `group_meaning_zh` 的归一化字符串精确匹配（去掉非字母数字后小写比较），**不做语义判断**。
    所以复用已存在的组名是 agent 的责任：能归进已有组就用那个组的原文组名，别造新说法。
 
-3. **聚类并入库**（两种词源共用）。把词按语义归组写入 `/tmp/english-lib-add.json`
+4. **聚类入库**（两种词源共用）。把词按语义归组写入 `/tmp/english-lib-add.json`
    （划词词单的第三列原句可作 `example`；词组 term 照收）：
    ```json
    {"items":[
@@ -161,7 +159,7 @@ python3 "<skill>/scripts/build_reader.py" --data-file /tmp/english-<slug>-reader
    `group_meaning_zh` 留空的条目会进 `ungrouped`，批改时取不到 —— 尽量都给组名。
    同组内同名 term 自动跳过，重复入库安全。
 
-4. **刷新浏览页**（可选，用户想看库时）：
+5. **刷新浏览页**（可选，用户想看库时）：
    ```bash
    python3 "<skill>/scripts/build_library_view.py"
    ```
@@ -278,8 +276,8 @@ python3 "<skill>/scripts/build_correction_review.py"
 - `manage_library.py`：`--print` 读库（批改前取建议）｜`--data-file` 入库｜`--init` 建空库。
 - `extract_dictionary.py`：从 `essays/` 的阅读页/合集页抽内嵌词典（「入库」的词源，无需用户粘贴）。
 - `import_vocab_drill.py`：vocab-drill 词库 → 个人库一键导入（只读 state，`--dry-run` 预览，重复执行安全）。
-- `build_library_view.py`：双层浏览页 `my-library.html` —— 划词词本（打开时实时读 localStorage，
-  汇总所有 `english_collect_*`，带来源篇名）+ 个人库（library.json 渲染），`--out` 可指定路径。
+- `build_library_view.py`：素材库 → `my-library.html` 纯浏览页（library.json 渲染：组/词统计、
+  搜索、「⬇ 下载素材库」备份），`--out` 可指定路径。划词汇总入口在阅读页按钮，不在本页。
 - `validate_data.py`：`--kind reader|correction` 生成前校验（批注是否在对应段落、分数是否 0-9）。
 - `build_correction_review.py`：读批改 log（旧 HTML 兜底，`--dir`/`--out` 可选）→ 生成进度汇总（分数折线图 + 按评分维度的问题统计）。
 
