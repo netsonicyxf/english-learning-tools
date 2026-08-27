@@ -12,7 +12,7 @@ description: "雅思写作练习系统：两个入口 —— (1) 范文收录：
 - **Python 3**：用脚本把 JSON 注入 HTML 模板（避免手工转义出错）。
 - **浏览器**：生成的 HTML 用浏览器打开即可交互。
 - **本 skill 目录**：脚本与模板都相对 `SKILL.md` 所在目录定位，不要写死绝对路径。
-- **生成文件目录**：`~/Desktop/English Writing/`（首次运行自动创建），按类型分子目录：`essays/` 范文阅读页（含 `my-library.html` 素材库浏览页）、`corrections/` 批改页与进度汇总、`writing/` 独立写作页。
+- **生成文件目录**：`~/Desktop/English Writing/`（首次运行自动创建），按类型分子目录：`essays/` 范文阅读页（含 `my-library.html` 素材库浏览页）、`corrections/` 批改页、`writing/` 独立写作页；进度汇总 `review-corrections.html` 固定在根目录（每次删旧建新）。
 
 ## 核心概念
 
@@ -117,9 +117,9 @@ python3 "<skill>/scripts/build_reader.py" --data-file /tmp/english-<slug>-reader
 0. **懒导入（每次 english-writing 会话开始先做，不用等口令）**：用户点「导入素材库」
    按钮（**阅读页/合集页顶栏主按钮**）就是导入意图。
    点击会汇总**所有页面**划过的词（file:// 共享 localStorage，不只当前篇）下载
-   `english-wordbank-export.txt`。任何会话开始（批改/收录/看库，无论用户来干什么）先查：
+   `writing-wordbank-export.txt`。任何会话开始（批改/收录/看库，无论用户来干什么）先查：
    ```bash
-   ls -t ~/Downloads/english-wordbank-export*.txt | head -1
+   ls -t ~/Downloads/writing-wordbank-export*.txt | head -1
    ```
    对比 `~/Documents/english-writing/wordbank-import-state.json` 记录的上次导入时间
    （无此文件视为从未导入）。文件比记录新（或从未导入过且文件存在）→ **静默自动导入**
@@ -248,7 +248,8 @@ python3 "<skill>/scripts/build_correction_review.py"
 ```
 - 数据源是 `~/Documents/english-writing/corrections-log.jsonl`（每次批改由 build_correction.py 自动追加，含批注明细）——log 是数据，HTML 是渲染产物，不要从批改页反解数据
 - 兜底：log 功能上线前生成的旧批改页会被扫描收录，时间线取文件修改时间
-- 输出 `~/Desktop/English Writing/corrections/review-corrections.html`：
+- 输出 `~/Desktop/English Writing/review-corrections.html`（根目录，不进 corrections/；
+  每次删掉上一份再生成，任一时刻只有最新一份）：
   - 分数折线图（Overall / TA / CC / LR / GRA；Chart.js 走 CDN，离线时自动降级，数据以下方表格为准）
   - 高频问题统计：error 批注按雅思评分维度归类（GRA 语法 / LR 词汇 / CC 结构衔接 / TA 任务回应）
   - 历次批改记录表格（按时间排序）

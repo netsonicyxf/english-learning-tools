@@ -14,7 +14,8 @@ from datetime import datetime
 SKILL_DIR = Path(__file__).resolve().parent.parent
 TEMPLATE = SKILL_DIR / "templates" / "review-corrections.html"
 DEFAULT_DIR = Path.home() / "Desktop" / "English Writing"
-DEFAULT_OUT = DEFAULT_DIR / "corrections" / "review-corrections.html"
+# 汇总页放根目录（不进 corrections/），且每次都是删旧建新 —— 用户只关心最新状态
+DEFAULT_OUT = DEFAULT_DIR / "review-corrections.html"
 LOG_FILE = Path.home() / "Documents" / "english-writing" / "corrections-log.jsonl"
 
 # Errors are grouped by the annotation's IELTS band dimension. Comments are
@@ -154,7 +155,10 @@ def build_review(correction_dir=DEFAULT_DIR, output=None):
 
     if output is None:
         output = str(DEFAULT_OUT)
-    Path(output).write_text(html_output, "utf-8")
+    out_path = Path(output)
+    if out_path.exists():
+        out_path.unlink()  # 删掉上一次的汇总页，保持任一时刻只有最新一份
+    out_path.write_text(html_output, "utf-8")
 
     print(f"\n✓ 汇总页: {output}")
     print(f"  批改记录: {len(history)} 条")
