@@ -194,7 +194,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica N
       <span class="article-meta"></span>
     </div>
     <div class="controls">
-      <button class="btn" id="export-btn">导出单词本</button>
+      <button class="btn" id="export-btn">导入单词库</button>
       <button class="btn btn-primary" id="view-toggle-btn">生成练习</button>
     </div>
   </header>
@@ -521,17 +521,41 @@ function copyText(t) {
   } catch (e) { return false; }
 }
 
+// \u5bfc\u5165\u5355\u8bcd\u5e93\uff1a\u6c47\u603b\u6240\u6709\u9605\u8bfb\u9875\u7684\u5212\u8bcd\u8bcd\u672c\uff08file:// \u9875\u9762\u5171\u4eab localStorage\uff0c\u4e0d\u9650\u5f53\u524d\u7bc7\uff09\uff0c
+// \u4e0b\u8f7d wordbank-export.txt\uff08\u8bcd/\u91ca\u4e49/\u6587\u7ae0\u539f\u53e5 \u4e09\u5217\uff0c\u56fa\u5b9a\u6587\u4ef6\u540d\uff09\u3002\u843d\u76d8\u5373\u5bfc\u5165\u610f\u56fe\uff0c
+// agent \u4e0b\u6b21\u5bf9\u8bdd\u81ea\u52a8\u7ecf import_review_vocab.py \u704c\u8fdb vocab-drill\uff0c\u65e0\u9700\u518d\u5bf9\u53e3\u4ee4\u3002
+function flashImportBtn(btn, msg){
+  const old = btn.textContent;
+  btn.textContent = msg;
+  setTimeout(function(){ btn.textContent = old; }, 3000);
+}
 function exportWordBank() {
-  if (!wordBank.length) { alert('\u5355\u8bcd\u672c\u4e3a\u7a7a'); return; }
-  const lines = wordBank.map(w => w.text + '\t' + w.translation + '\t' + (w.context||''));
+  const byWord = {};
+  try{
+    for(let i=0;i<localStorage.length;i++){
+      const key = localStorage.key(i);
+      if(!key || key.indexOf('er_wordbank_') !== 0) continue;
+      let words;
+      try{ words = JSON.parse(localStorage.getItem(key)); }catch(e){ continue; }
+      if(!Array.isArray(words)) continue;
+      words.forEach(function(w){
+        if(!w || !w.text || !w.translation || w.translation === '\uff08\u5f85\u7ffb\u8bd1\uff09') return;
+        const k = 'e' + w.text.toLowerCase();
+        if(!byWord[k]) byWord[k] = [w.text, w.translation, w.context || ''];
+      });
+    }
+  }catch(e){}
+  const rows = Object.values(byWord);
+  if(!rows.length){ alert('\u8fd8\u6ca1\u6709\u53ef\u5bfc\u5165\u7684\u5212\u8bcd'); return; }
+  const lines = rows.map(function(r){ return r.join('\t'); });
   const blob = new Blob([lines.join('\n')], {type:'text/plain;charset=utf-8'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'wordbank-' + ARTICLE_DATA.id + '.txt';
-  a.click(); URL.revokeObjectURL(a.href);
-  const copied = copyText(wordBank.map(w => w.text).join(','));
-  alert('\u5df2\u5bfc\u51fa wordbank-' + ARTICLE_DATA.id + '.txt\uff0c' +
-        (copied ? '\u5e76\u5df2\u628a ' + wordBank.length + ' \u4e2a\u5355\u8bcd\uff08\u9017\u53f7\u5206\u9694\uff09\u590d\u5236\u5230\u526a\u8d34\u677f' : '\u526a\u8d34\u677f\u590d\u5236\u5931\u8d25\uff0c\u4ee5 txt \u4e3a\u51c6'));
+  a.download = 'wordbank-export.txt';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 5000);
+  copyText(rows.map(function(r){ return r[0]; }).join(','));
+  flashImportBtn($exportBtn, '\u2713 \u5df2\u63d0\u4ea4 \u00b7 \u4e0b\u6b21\u5bf9\u8bdd\u81ea\u52a8\u5165\u8bcd\u5e93');
 }
 
 // ============================================================

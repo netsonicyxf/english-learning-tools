@@ -163,7 +163,7 @@ python3 "<skill>/scripts/build_reader.py" --data-file /tmp/english-<slug>-reader
    ```bash
    python3 "<skill>/scripts/build_library_view.py"
    ```
-   阅读页右上角「词汇库」按钮打开的就是这个页面（同目录下的 `my-library.html`）。
+   阅读页顶栏「素材库」按钮打开的就是这个页面（同目录下的 `my-library.html`）。
 
 ### 从 vocab-drill 一键导入词库（跨 skill 桥接）
 

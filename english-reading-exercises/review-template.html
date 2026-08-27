@@ -206,8 +206,9 @@ function exportWordbank() {
     a.download = 'wordbank-export.txt';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
   } catch (e) {}
-  alert('已导出 wordbank-export.txt（' + list.length + ' 词，含释义和例句），' +
-        (copied ? '单词列表（逗号分隔）已复制到剪贴板' : '剪贴板复制失败，以 txt 为准') + '。');
+  alert('已提交 wordbank-export.txt（' + list.length + ' 词，含释义和例句），' +
+        '下次对话自动导入 vocab-drill 词库' +
+        (copied ? '，词单（逗号分隔）已复制到剪贴板' : '') + '。');
 }
 
 // === INIT ===
@@ -259,7 +260,7 @@ function renderDashboard() {
     : '当前词表：文章词典全量（浏览器里没有你的划词记录）';
   html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin:14px 0 4px;flex-wrap:wrap">' +
     '<span style="font-size:13px;color:#8b95a5">' + srcNote + '</span>' +
-    '<button class="btn" onclick="exportWordbank()">导出词本</button>' +
+    '<button class="btn" onclick="exportWordbank()">导入单词库</button>' +
   '</div>';
 
   html += '<h3 style="font-size:16px;font-weight:600;color:#344054;margin-bottom:12px">文章列表</h3>';
