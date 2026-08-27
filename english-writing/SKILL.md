@@ -77,6 +77,8 @@ python3 "<skill>/scripts/build_reader.py" --data-file /tmp/english-<slug>-reader
 - 单词本保存在 `localStorage`（key: `english_collect_<slug>`），刷新不丢。
 - 划词即收录，不需要粘贴回 agent。
 - 不设导出：单词本只在浏览器内积累与查看。
+- 汇总查看：`my-library.html` 打开时实时读所有阅读页的 localStorage 词本
+  （同浏览器 file:// 页面共享存储），跨篇去重、带来源篇名——不用导出也能总览。
 
 ### 批量解析文档（一篇文档 → 单页合集阅读页）
 
@@ -113,8 +115,10 @@ python3 "<skill>/scripts/build_reader.py" --data-file /tmp/english-<slug>-reader
    ```bash
    python3 "<skill>/scripts/extract_dictionary.py" --out /tmp/english-dict.json
    ```
-   注意：浏览器 localStorage 里用户**划过**的词读不到（那是浏览器私有存储）；
-   抽的是全量词典。若用户只想收划过的那几个词，让其把词贴出来即可。
+   注意：浏览器 localStorage 里用户**划过**的词，agent 从磁盘读不到（浏览器私有存储）；
+   抽的是全量词典。但 `my-library.html` 打开时会**实时读 localStorage** 汇总展示划词词本
+   （与阅读 skill 复习页的 mergeWordBank 同款机制），用户在那里能看到自己划过的词；
+   若用户只想收划过的那几个词，让其从该页复制贴出来即可。
 
 1. **先读已有组名**，避免把 `重要的` 和 `重要/起作用` 拆成两个近义组：
    ```bash
@@ -255,7 +259,8 @@ python3 "<skill>/scripts/build_correction_review.py"
 - `manage_library.py`：`--print` 读库（批改前取建议）｜`--data-file` 入库｜`--init` 建空库。
 - `extract_dictionary.py`：从 `essays/` 的阅读页/合集页抽内嵌词典（「入库」的词源，无需用户粘贴）。
 - `import_vocab_drill.py`：vocab-drill 词库 → 个人库一键导入（只读 state，`--dry-run` 预览，重复执行安全）。
-- `build_library_view.py`：库 → `my-library.html` 浏览页，`--out` 可指定路径。
+- `build_library_view.py`：双层浏览页 `my-library.html` —— 划词词本（打开时实时读 localStorage，
+  汇总所有 `english_collect_*`，带来源篇名）+ 个人库（library.json 渲染），`--out` 可指定路径。
 - `validate_data.py`：`--kind reader|correction` 生成前校验（批注是否在对应段落、分数是否 0-9）。
 - `build_correction_review.py`：读批改 log（旧 HTML 兜底，`--dir`/`--out` 可选）→ 生成进度汇总（分数折线图 + 按评分维度的问题统计）。
 

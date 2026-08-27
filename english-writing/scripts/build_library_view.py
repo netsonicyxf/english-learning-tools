@@ -1,10 +1,37 @@
 #!/usr/bin/env python3
-"""Generate an HTML page to view the personal IELTS vocabulary library."""
-import argparse, json
+"""Generate an HTML page to view the personal IELTS vocabulary library.
+
+Two layers on one page:
+- 划词词本: read LIVE from browser localStorage (english_collect_<essayId> keys,
+  same-origin file:// pages share storage — the reading skill's review page uses
+  the same trick via mergeWordBank). Shows exactly the words the user 划过.
+- 个人库: rendered from library.json (the durable asset corrections read).
+"""
+import argparse, json, glob, sys
 from pathlib import Path
 
+SKILL_DIR = Path(__file__).resolve().parent.parent
 LIB = Path.home() / "Documents" / "english-writing" / "library.json"
-DEFAULT_OUT = Path.home() / "Desktop" / "English Writing" / "essays" / "my-library.html"
+ESSAYS_DIR = Path.home() / "Desktop" / "English Writing" / "essays"
+DEFAULT_OUT = ESSAYS_DIR / "my-library.html"
+
+sys.path.insert(0, str(SKILL_DIR / "scripts"))
+import extract_dictionary  # reuse its HTML parser; essay id → title map
+
+
+def essay_titles():
+    """id → title for every essay inside essays/*-reader.html, so the
+    wordbank section can show 来源篇名 instead of a raw storage key."""
+    titles = {}
+    for fpath in sorted(glob.glob(str(ESSAYS_DIR / "*-reader.html"))):
+        data = extract_dictionary.extract_data(Path(fpath).read_text("utf-8"))
+        if not data:
+            continue
+        for e in (data.get("essays") or [data]):
+            if e.get("id"):
+                titles[e["id"]] = e.get("title", e["id"])
+    return titles
+
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--out", help="output HTML path (default: ~/Desktop/English Writing/essays/my-library.html)")
@@ -12,7 +39,8 @@ args = ap.parse_args()
 OUT = Path(args.out) if args.out else DEFAULT_OUT
 
 lib = json.loads(LIB.read_text("utf-8")) if LIB.exists() else {"groups": [], "ungrouped": []}
-data_json = json.dumps(lib, ensure_ascii=False).replace("</", "<\\/")
+lib_json = json.dumps(lib, ensure_ascii=False).replace("</", "<\\/")
+titles_json = json.dumps(essay_titles(), ensure_ascii=False).replace("</", "<\\/")
 OUT.parent.mkdir(parents=True, exist_ok=True)
 
 html = """<!DOCTYPE html>
@@ -23,18 +51,23 @@ html = """<!DOCTYPE html>
 <title>我的雅思词汇库</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--navy:#173b78;--cream:#fff4d8;--white:#fffaf0;--ink:#17345f;--muted:#6d6a61}
+:root{--navy:#173b78;--cream:#fff4d8;--white:#fffaf0;--ink:#17345f;--muted:#6d6a61;--amber:#b45309}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',sans-serif;background:var(--cream);color:var(--ink);line-height:1.6;padding:24px}
 h1{font-size:22px;font-weight:800;color:var(--navy);margin-bottom:6px}
+h2{font-size:16px;font-weight:800;color:var(--amber);margin:28px 0 10px}
 .sub{font-size:13px;color:var(--muted);margin-bottom:20px}
-.stats{display:flex;gap:16px;margin-bottom:24px}
+.stats{display:flex;gap:16px;margin-bottom:24px;flex-wrap:wrap}
 .stat{background:var(--white);border:2px solid var(--navy);border-radius:12px;padding:14px 20px;text-align:center;box-shadow:3px 3px 0 rgba(23,59,120,.35)}
+.stat.amber{border-color:var(--amber);box-shadow:3px 3px 0 rgba(180,83,9,.3)}
 .stat .num{font-size:28px;font-weight:800;color:var(--navy)}
+.stat.amber .num{color:var(--amber)}
 .stat .label{font-size:12px;color:var(--muted);font-weight:600}
 .search{width:100%;max-width:400px;padding:10px 16px;border:2px solid var(--navy);border-radius:10px;font-size:14px;margin-bottom:20px;outline:none}
 .search:focus{box-shadow:3px 3px 0 var(--navy)}
 .group{background:var(--white);border:2px solid var(--navy);border-radius:14px 18px 12px 16px;padding:16px 20px;margin-bottom:16px;box-shadow:5px 5px 0 rgba(23,59,120,.6)}
+.group.wb{border-color:var(--amber);box-shadow:5px 5px 0 rgba(180,83,9,.45)}
 .group-title{font-size:13px;font-weight:800;color:var(--navy);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px dashed rgba(23,59,120,.3)}
+.group.wb .group-title{color:var(--amber);border-bottom-color:rgba(180,83,9,.3)}
 .items{display:flex;flex-direction:column;gap:8px}
 .item{display:flex;gap:12px;align-items:baseline;padding:8px 10px;background:var(--cream);border-radius:8px;transition:background .15s}
 .item:hover{background:#fde68a}
@@ -44,8 +77,7 @@ h1{font-size:22px;font-weight:800;color:var(--navy);margin-bottom:6px}
 .item-source{font-size:10px;color:var(--muted);margin-top:2px}
 .ungr{margin-top:24px}
 .empty{color:var(--muted);text-align:center;padding:40px}
-.copy-btn{padding:4px 10px;border:1.5px solid var(--navy);border-radius:6px;background:var(--cream);font-size:11px;cursor:pointer;font-weight:700;color:var(--navy);margin-left:auto;flex-shrink:0}
-.copy-btn:hover{background:var(--navy);color:var(--white)}
+.hint{font-size:12px;color:var(--muted);margin-top:8px}
 </style>
 </head>
 <body>
@@ -53,25 +85,84 @@ h1{font-size:22px;font-weight:800;color:var(--navy);margin-bottom:6px}
 <div class="sub" id="updated"></div>
 <div class="stats" id="stats"></div>
 <input class="search" id="search" placeholder="搜索词 / 释义...">
+<h2>✍ 划词词本（浏览器实时）</h2>
+<div id="wordbank"></div>
+<h2>📚 个人库（长期，批改推荐用）</h2>
 <div id="groups"></div>
 <div class="ungr" id="ungrouped"></div>
 <script>
-const LIB = """ + data_json + """;
+const LIB = """ + lib_json + """;
+const TITLES = """ + titles_json + """;
 
 const $groups = document.getElementById('groups');
 const $ungrouped = document.getElementById('ungrouped');
 const $search = document.getElementById('search');
 const $stats = document.getElementById('stats');
 const $updated = document.getElementById('updated');
+const $wordbank = document.getElementById('wordbank');
 
 const totalItems = LIB.groups.reduce((s,g) => s + g.items.length, 0) + (LIB.ungrouped||[]).length;
 $updated.textContent = LIB.updated_at ? '更新于 ' + LIB.updated_at : '';
-$stats.innerHTML =
-  '<div class="stat"><div class="num">'+LIB.groups.length+'</div><div class="label">语义组</div></div>'+
-  '<div class="stat"><div class="num">'+totalItems+'</div><div class="label">总词数</div></div>';
+
+// === 划词词本：打开本页时实时读 localStorage（与阅读 skill 复习页同款机制）===
+// 同一浏览器里 file:// 页面共享 localStorage，阅读页划的词这里直接可见。
+function loadWordBank(){
+  const wb = [];
+  try{
+    const seen = {};
+    for(let i=0;i<localStorage.length;i++){
+      const key = localStorage.key(i);
+      const m = key && key.match(/^(?:english|ielts)_collect_(.+)$/);
+      if(!m) continue;
+      const essayId = m[1];
+      if(seen['e'+essayId]) continue;  // english_/ielts_ 双键时只取一次
+      seen['e'+essayId] = 1;
+      let words;
+      try{ words = JSON.parse(localStorage.getItem(key)); }catch{ continue; }
+      if(!Array.isArray(words)) continue;
+      words.forEach(w => {
+        if(!w || !w.text || !w.translation || w.translation === '（待翻译）') return;
+        wb.push({text:w.text, translation:w.translation, context:w.context||'',
+                 essay:essayId, key:'e'+w.text.toLowerCase()});
+      });
+    }
+  }catch(e){ /* localStorage 不可用时词本区显示为空即可 */ }
+  // 跨篇去重：同一词保留第一次出现，来源篇名并列
+  const byWord = {};
+  wb.forEach(w => {
+    if(!byWord[w.key]) byWord[w.key] = {text:w.text, translation:w.translation, context:w.context, essays:[]};
+    const t = TITLES[w.essay] || w.essay;
+    if(!byWord[w.key].essays.includes(t)) byWord[w.key].essays.push(t);
+  });
+  return Object.values(byWord);
+}
+
+let WORDS = loadWordBank();
+
+function renderStats(){
+  $stats.innerHTML =
+    '<div class="stat amber"><div class="num">'+WORDS.length+'</div><div class="label">划词收词</div></div>'+
+    '<div class="stat"><div class="num">'+LIB.groups.length+'</div><div class="label">语义组</div></div>'+
+    '<div class="stat"><div class="num">'+totalItems+'</div><div class="label">个人库词数</div></div>';
+}
 
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function copyText(t){return navigator.clipboard.writeText(t).catch(()=>{});}
+
+function renderWordBank(f){
+  const matched = WORDS.filter(w => !f || w.text.toLowerCase().includes(f) || (w.translation||'').toLowerCase().includes(f));
+  if(!matched.length){
+    $wordbank.innerHTML = '<div class="group wb"><div class="empty">还没有划词记录 —— 打开任意阅读页，选中词即可收藏；本页刷新后出现在这里</div></div>';
+    return;
+  }
+  let html = '<div class="group wb"><div class="group-title">划过的词 ('+matched.length+')</div><div class="items">';
+  matched.forEach(w => {
+    html += '<div class="item"><div><div class="item-term">'+esc(w.text)+'</div>'+
+      (w.context?'<div class="item-example">'+esc(w.context)+'</div>':'')+
+      '<div class="item-source">来自: '+esc(w.essays.join(' · '))+'</div></div>'+
+      '<div class="item-trans">'+esc(w.translation)+'</div></div>';
+  });
+  $wordbank.innerHTML = html + '</div></div>';
+}
 
 function render(filter){
   const f = (filter||'').toLowerCase();
@@ -104,7 +195,13 @@ function render(filter){
   }
 }
 
-$search.addEventListener('input', ()=>render($search.value));
+$search.addEventListener('input', ()=>{
+  const f = $search.value;
+  renderWordBank(f.toLowerCase());
+  render(f);
+});
+renderStats();
+renderWordBank('');
 render();
 </script>
 </body>
