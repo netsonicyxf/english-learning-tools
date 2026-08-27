@@ -117,16 +117,22 @@ python3 "<skill>/scripts/build_reader.py" --data-file /tmp/english-<slug>-reader
 0. **懒导入（每次 english-writing 会话开始先做，不用等口令）**：用户点「导入素材库」
    按钮（**阅读页/合集页顶栏主按钮**）就是导入意图。
    点击会汇总**所有页面**划过的词（file:// 共享 localStorage，不只当前篇）下载
-   `writing-wordbank-export.txt`。任何会话开始（批改/收录/看库，无论用户来干什么）先查：
+   `writing-wordbank-export.txt`。保存对话框默认停在哪是浏览器自己的记忆，页面无法指定
+   （沙箱限制）；用户应存进 `~/Desktop/English Writing/`。任何会话开始（批改/收录/看库，
+   无论用户来干什么）先查（主位置 English Writing，`~/Downloads` 兜底——浏览器不弹窗
+   直落下载文件夹时也能拾取）：
    ```bash
-   ls -t ~/Downloads/writing-wordbank-export*.txt | head -1
+   ls -t ~/Desktop/English\ Writing/writing-wordbank-export.txt ~/Downloads/writing-wordbank-export.txt 2>/dev/null | head -1
    ```
+   固定文件名、不用通配符（本机 zsh 下 glob 无匹配会中止整条命令，`||` 兜底也不执行）；
+   两处按 mtime 全局取最新。浏览器提示「替换」时选替换，避免出现 ` (1)` 副本被漏拾取。
    对比 `~/Documents/english-writing/wordbank-import-state.json` 记录的上次导入时间
    （无此文件视为从未导入）。文件比记录新（或从未导入过且文件存在）→ **静默自动导入**
    （读词聚类走下面的步骤），完成后把新时间写回 state 文件，并向用户提一句已导入。
    导入幂等（同组同名 term 自动跳过），重复检测无害。
 1. 口令「导入素材库」仍然有效：用户说了就立即执行同一流程（不看 state，强制重扫）。
-2. 完全找不到导出文件时才提示用户：打开任意阅读页点「导入素材库」。这一 click 无法省略：浏览器沙箱不允许页面悄悄写磁盘，agent 也读不到
+2. 完全找不到导出文件时才提示用户：打开任意阅读页点「导入素材库」，保存进
+   `~/Desktop/English Writing/`。这一 click 无法省略：浏览器沙箱不允许页面悄悄写磁盘，agent 也读不到
    浏览器内部存储，localStorage → 磁盘文件必须经用户之手（阅读 skill 的「导出词本」
    按钮同理）。不要退回让用户手动复制粘贴。
 
