@@ -23,7 +23,7 @@ html = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>我的雅思素材库</title>
+<title>我的素材库</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--navy:#173b78;--cream:#fff4d8;--white:#fffaf0;--ink:#17345f;--muted:#6d6a61}
@@ -53,7 +53,7 @@ h1{font-size:22px;font-weight:800;color:var(--navy);margin-bottom:6px}
 </style>
 </head>
 <body>
-<h1>我的雅思素材库</h1>
+<h1>我的素材库</h1>
 <div class="sub" id="updated"></div>
 <div class="stats" id="stats"></div>
 <div class="toolbar">

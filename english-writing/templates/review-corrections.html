@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>雅思批改进度汇总</title>
+<title>批改进度汇总</title>
 <style>
 :root{--bg:#fafafa;--card:#fff;--text:#1a1a1a;--muted:#888;--accent:#3b82f6;--border:#e5e5e5;--error:#ef4444;--improve:#f59e0b;--green:#22c55e}
 *{margin:0;padding:0;box-sizing:border-box}
@@ -30,7 +30,7 @@ tr:hover{background:var(--bg)}
 </style>
 </head>
 <body>
-<h1>雅思批改进度汇总</h1>
+<h1>批改进度汇总</h1>
 <p class="subtitle">Generated: {{TIMESTAMP}}</p>
 
 <div class="stats-row" id="stats"></div>
@@ -42,7 +42,7 @@ tr:hover{background:var(--bg)}
 
 <div class="card">
   <h2>高频问题</h2>
-  <p style="color:var(--muted);font-size:13px;margin-bottom:12px">按雅思评分维度归类错误批注，次数越多越优先复习</p>
+  <p style="color:var(--muted);font-size:13px;margin-bottom:12px">按评分维度归类错误批注，次数越多越优先复习</p>
   <table id="error-table">
     <thead><tr><th>维度</th><th>次数</th><th>涉及题目</th><th>近期示例</th></tr></thead>
     <tbody></tbody>

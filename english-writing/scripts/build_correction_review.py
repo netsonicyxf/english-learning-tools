@@ -167,7 +167,7 @@ def build_review(correction_dir=DEFAULT_DIR, output=None):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(
-        description="生成雅思批改进度汇总页（log 为主数据源，HTML 兜底）")
+        description="生成批改进度汇总页（log 为主数据源，HTML 兜底）")
     ap.add_argument("--dir", default=str(DEFAULT_DIR),
                     help="兜底扫描的根目录（递归找无 log 的旧批改页）")
     ap.add_argument("--out", default=None, help="输出 HTML 路径")
