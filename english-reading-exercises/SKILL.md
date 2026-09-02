@@ -10,7 +10,6 @@ read_when:
   - User mentions "划词翻译", "单词本", "完形填空", "概念图" related to English articles
   - User says "复习", "review", "总结学过的文章", "复习单词", "复习句型"
   - User has multiple *-reading.html files and wants to review them together
-  - User wants to see vocabulary overlap across articles
 ---
 
 # English Reading Exercises（生成 + 复习）
@@ -400,7 +399,7 @@ out.write_text(html, "utf-8")  # 注意 () 包裹：/ 优先级低于 . ，否�
 
 将多篇阅读练习（`*-reading.html`）汇总为一个**统一复习页面**。核心体验：
 
-1. **总览面板** — 已读文章数、累计生词数、句型数
+1. **总览面板** — 已读文章数、当前词库词数、句型数
 2. **单词卡片** — Anki 式翻卡，认识/模糊/不认识三档自评，不认识的词优先再出现
 3. **句型运用** — 所有文章的句型结构集中展示，每题用新句子练习（非原文）
 
