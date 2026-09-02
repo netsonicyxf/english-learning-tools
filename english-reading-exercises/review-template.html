@@ -136,12 +136,14 @@ function mergeWordBank() {
       if (!raw) return;
       var words = JSON.parse(raw);
       if (!Array.isArray(words)) return;
+      var kept = 0;
       words.forEach(function(w) {
         if (!w.text || !w.translation) return;
         if (w.translation === '\uff08\u5f85\u7ffb\u8bd1\uff09') return;
         if (w.text.split(/\s+/).length > 3) return;
         var lower = w.text.toLowerCase().trim();
         if (!lower) return;
+        kept++;
         if (!wbMap[lower]) {
           wbMap[lower] = { word: w.text, meaning: w.translation, articles: [], count: 0, example: '' };
         }
@@ -156,6 +158,7 @@ function mergeWordBank() {
           }
         }
       });
+      a.wbVocabCount = kept;
     } catch(e) {}
   });
 
@@ -271,7 +274,7 @@ function renderDashboard() {
         '<div class="meta">' + esc(a.source) + '</div>' +
       '</div>' +
       '<div class="article-badges">' +
-        '<span class="badge badge-vocab">' + a.vocabCount + ' 词</span>' +
+        '<span class="badge badge-vocab">' + (REVIEW_DATA.usingWordbank ? (a.wbVocabCount ? a.wbVocabCount + ' 词' : '未划词') : a.vocabCount + ' 词') + '</span>' +
         '<span class="badge badge-pattern">' + a.patternCount + ' 句型</span>' +
       '</div>' +
     '</div>';
