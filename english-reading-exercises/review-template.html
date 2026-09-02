@@ -256,7 +256,7 @@ function renderDashboard() {
   '</div>';
 
   var srcNote = REVIEW_DATA.usingWordbank
-    ? '当前词表：你的划词词本（' + s.totalUniqueWords + ' 词）· 文章词典全量 ' + REVIEW_DATA.buildVocabCount + ' 词'
+    ? '当前词表：你的划词词本（' + s.totalUniqueWords + ' 词）'
     : '当前词表：文章词典全量（浏览器里没有你的划词记录）';
   html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin:14px 0 4px;flex-wrap:wrap">' +
     '<span style="font-size:13px;color:#8b95a5">' + srcNote + '</span>' +
