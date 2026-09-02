@@ -3,7 +3,6 @@
 
 用法:
   python3 import_review_vocab.py                # 全量导入（默认 ~/Desktop/English Learning/review-vocab.json）
-  python3 import_review_vocab.py --core         # 只导跨文章重复词（core）
   python3 import_review_vocab.py --backfill     # 补录：已登记但还没词卡的词，数据源里有原句例句的也存卡
   python3 import_review_vocab.py <文件路径>     # review-vocab.json，或词单 txt
                                                  #（wordbank-export.txt 三列：词/释义/文章原句——
@@ -39,7 +38,6 @@ def main():
                  "(应与 english-reading-exercises 同级安装在 english-learning-tools 下)")
 
     argv = sys.argv[1:]
-    core_only = "--core" in argv
     backfill = "--backfill" in argv
     src = Path(next((a for a in argv if not a.startswith("--")), DEFAULT_JSON))
     raw = src.read_text("utf-8")
@@ -47,7 +45,7 @@ def main():
     if raw.lstrip().startswith("{"):
         # review-vocab.json（build 导出）：带释义+例句，登记并存词卡
         data = json.loads(raw)
-        entries = data["core"] if core_only else data["all"]
+        entries = data["words"]
     else:
         # 词单 txt（wordbank-export.txt 三列：词/释义/文章原句，例句是划词时的原文；
         # 也吃逗号/换行分隔的裸词单）。三列里带原句的行直接随导入存卡——

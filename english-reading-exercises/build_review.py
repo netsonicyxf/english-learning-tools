@@ -203,7 +203,6 @@ def build_review(directory=DEFAULT_DIR, output=None):
             all_patterns.append(p_copy)
 
     # Build stats
-    shared_words = sum(1 for v in master_vocab.values() if v["count"] > 1)
     review_data = {
         "articles": articles_meta,
         "masterVocab": list(master_vocab.values()),
@@ -211,7 +210,6 @@ def build_review(directory=DEFAULT_DIR, output=None):
         "stats": {
             "totalArticles": len(articles_meta),
             "totalUniqueWords": len(master_vocab),
-            "sharedWords": shared_words,
             "totalPatterns": len(all_patterns),
         },
     }
@@ -225,18 +223,15 @@ def build_review(directory=DEFAULT_DIR, output=None):
     Path(output).write_text(html_output, "utf-8")
 
     # Vocab export for the vocab-drill pipeline: raw material for --add/--card.
-    # core = words appearing in >1 article (highest-value batch), all = everything.
     vocab_out = Path(output).with_name("review-vocab.json")
 
     def _entry(v):
-        return {k: v[k] for k in ("word", "meaning", "example", "count", "articles")}
+        return {k: v[k] for k in ("word", "meaning", "example")}
 
-    ordered = sorted(master_vocab.values(),
-                     key=lambda v: (-v["count"], v["word"].lower()))
     vocab_export = {
         "generated": datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "core": [_entry(v) for v in ordered if v["count"] > 1],
-        "all": [_entry(v) for v in ordered],
+        "words": [_entry(v) for v in sorted(master_vocab.values(),
+                                            key=lambda v: v["word"].lower())],
     }
     vocab_out.write_text(
         json.dumps(vocab_export, ensure_ascii=False, indent=1), "utf-8")
@@ -244,10 +239,8 @@ def build_review(directory=DEFAULT_DIR, output=None):
     print(f"\n✓ Review page: {output}")
     print(f"  Articles: {len(articles_meta)}")
     print(f"  Unique words: {len(master_vocab)}")
-    print(f"  Shared words: {shared_words}")
     print(f"  Patterns: {len(all_patterns)}")
-    print(f"✓ Vocab export: {vocab_out} "
-          f"(core {len(vocab_export['core'])} / all {len(vocab_export['all'])})")
+    print(f"✓ Vocab export: {vocab_out} ({len(vocab_export['words'])} words)")
 
 
 if __name__ == "__main__":

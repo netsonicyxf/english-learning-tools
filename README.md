@@ -18,7 +18,7 @@
 
 ### [english-reading-exercises](english-reading-exercises/)
 
-双入口：把英文文章变成交互式阅读练习页（划词即译、自动单词本、六种练习：单词释义 / 句型改写 / 摘要完形 / 句子重排 / 概念图 / 背诵段落），以及跨文章汇总复习页（Anki 式翻卡、句型运用、词汇重叠分析）。
+双入口：把英文文章变成交互式阅读练习页（划词即译、自动单词本、六种练习：单词释义 / 句型改写 / 摘要完形 / 句子重排 / 概念图 / 背诵段落），以及跨文章汇总复习页（Anki 式翻卡、句型运用）。
 
 - 输入：文章 URL / 粘贴文本 / Notion LR Materials 数据库
 - 输出（`~/Desktop/English Learning/`）：`articles/*-reading.html`（单文件，浏览器打开即用）→ 根目录 `review-all.html` + `review-vocab.json`
@@ -27,7 +27,7 @@
 
 独立通用记忆引擎：SM2 间隔重复调度，管「今天该复习哪几个词」。词源不限于阅读——自带 GRE / SAT / TOEFL / IELTS 词表，也可从任意文章提词或直接报词单。词卡带 quirky 例句和情境故事，学习记录落本地。
 
-- **它不知道 reading 的存在**。整个套件里唯一的连接点是 reading 侧的 `import_review_vocab.py`，把复习汇总的词（推荐只导跨文章重复的 `--core`）单向灌进来。
+- **它不知道 reading 的存在**。整个套件里唯一的连接点是 reading 侧的 `import_review_vocab.py`，把复习汇总导出的词表单向灌进来。
 
 ### [english-writing](english-writing/)
 
