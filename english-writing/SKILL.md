@@ -77,6 +77,9 @@ python3 "<skill>/scripts/build_reader.py" --data-file /tmp/english-<slug>-reader
 - 单词本可单条删除。
 - 单词本仅存浏览器，它是划词的即时层；沉淀进素材库走顶栏「导入素材库」按钮
   （见「导入素材库」小节），另有「导入 vocab-drill 词库」旁路。
+- 底部导航条：同目录阅读页（`*-reader.html`）按首次创建顺序串成链，固定在页面底部，
+  显示 上一篇/下一篇 与序号，建页时自动刷新全部页面（含老页面）；合集页阅读视图里
+  原有的篇级上一篇/下一篇不受影响（见 `refresh_nav.py`）。
 
 ### 数据完全在浏览器内
 - 单词本保存在 `localStorage`（key: `english_collect_<slug>`），刷新不丢。
@@ -247,7 +250,7 @@ python3 "<skill>/scripts/manage_library.py" --print
 python3 "<skill>/scripts/validate_data.py" --kind correction --data-file /tmp/english-<slug>-correction.json
 python3 "<skill>/scripts/build_correction.py" --data-file /tmp/english-<slug>-correction.json --out ~/Desktop/English\ Writing/corrections/<slug>-correction.html
 ```
-模板渲染：左侧作文正文（按段，annotations 片段高亮、悬停/点击看批注），右侧批注栏（按段分组，含 band 标签与建议 chip），顶部四项分数 + 总评，底部「在原文基础上修改 / 重写」两种重写模式（带 `topic` 打开写作模板进入新一轮）。
+模板渲染：左侧作文正文（按段，annotations 片段高亮、悬停/点击看批注），右侧批注栏（按段分组，含 band 标签与建议 chip），顶部四项分数 + 总评，底部「在原文基础上修改 / 重写」两种重写模式（带 `topic` 打开写作模板进入新一轮）。页面最底部另有跨批改页的 上一篇/下一篇 导航（`*-correction.html` 按首次创建排序，建页时自动刷新，见 `refresh_nav.py`）。
 
 ### 重写循环
 批改页底部两种模式（两个按钮拉开间距，避免误点）：「✎ 在原文基础上修改」→ 打开写作页并**预填上一版作文 + 右侧批注清单**（hash 带 `&essay=...&annos=...`，只含 error/improve 批注）；清单随改随勾——正文里改掉对应片段该条自动 ✓，点击卡片在正文选中定位。「↻ 重写」→ 空白写作页。两者都带 `#topic=...&task=...`，全新计时 → 提交粘贴回对话框 → 再批改。如此循环。
@@ -285,6 +288,7 @@ python3 "<skill>/scripts/build_correction_review.py"
 - `build_collection.py`：多篇范文 → **单页合集**阅读页（内置目录切篇、上一篇/下一篇，校验必填字段与 id 唯一）。
 - `build_writer.py`：题目 → 写作页 + 倒计时（入口 2a）。
 - `build_correction.py`：批改数据 → 批改页；同时在输出目录放一份 `writer.html` 供「重写」跳转，并追加完整记录到 `corrections-log.jsonl`。`--no-log` 仅重渲染不记 log（模板微调后重新生成旧页面用，避免 log 重复记录）。
+- `refresh_nav.py`：给 essays/（`*-reader.html`）或 corrections/（`*-correction.html`）目录下所有页面注入/刷新底部 上一篇/下一篇 导航（build_reader / build_collection / build_correction 建页后自动调用，也可单独跑）。顺序钉在各目录 `.nav-order.json`：新页面按 mtime 追加、删掉的自动清出、**可手工调整**——文件系统 birth time 会被原位重建与整目录拷贝重置，不能当「首次创建时间」用，清单才是唯一事实源。`my-library.html` / `writer.html` 等工具页不进链。
 - `manage_library.py`：`--print` 读库（批改前取建议）｜`--data-file` 入库｜`--init` 建空库。
 - `extract_dictionary.py`：从 `essays/` 的阅读页/合集页抽内嵌词典（「入库」的词源，无需用户粘贴）。
 - `import_vocab_drill.py`：vocab-drill 词库 → 个人库一键导入（只读 state，`--dry-run` 预览，重复执行安全）。

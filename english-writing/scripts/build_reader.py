@@ -40,6 +40,12 @@ def main():
          "--out", str(lib_view)],
         check=False,
     )
+    # 底部导航：刷新同目录全部阅读页的 上一篇/下一篇（含本页与既有老页面）
+    subprocess.run(
+        [sys.executable, str(SKILL_DIR / "scripts" / "refresh_nav.py"),
+         "--dir", str(out.parent), "--pattern", "*-reader.html"],
+        check=False,
+    )
     print(f"✅ 阅读页已生成: {out}")
 
 

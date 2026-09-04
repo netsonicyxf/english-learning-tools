@@ -3,7 +3,7 @@
 alongside it so the 「重写」 button can open a fresh writing page.
 Also appends the full record (scores + annotations) to corrections-log.jsonl,
 which build_correction_review.py reads as its primary data source."""
-import json, sys, argparse, shutil, datetime
+import json, sys, argparse, shutil, datetime, subprocess
 from pathlib import Path
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
@@ -72,6 +72,12 @@ def main():
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
+    # 底部导航：刷新同目录全部批改页的 上一篇/下一篇（含本页与既有老页面）
+    subprocess.run(
+        [sys.executable, str(SKILL_DIR / "scripts" / "refresh_nav.py"),
+         "--dir", str(out.parent), "--pattern", "*-correction.html"],
+        check=False,
+    )
     print(f"✅ 批改页已生成: {out}")
     print(f"✅ 写作页副本已放置: {out.parent / 'writer.html'}")
     print(f"✅ 追加记录到 {LOG_FILE}" if not args.no_log else "⏭ 已按 --no-log 跳过 log 追加")
