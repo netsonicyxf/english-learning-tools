@@ -172,6 +172,9 @@ python3 "<skill>/scripts/build_reader.py" --data-file /tmp/english-<slug>-reader
    ```
    `group_meaning_zh` 留空的条目会进 `ungrouped`，批改时取不到 —— 尽量都给组名。
    同组内同名 term 自动跳过，重复入库安全。
+   **聚类宁粗勿细**：共享关键词/词根的词条并进同一组（community cohesion / cultural cohesion
+   → 「凝聚」，housing shortages / housing needs → 「住房」），只有找不到家族的单词条才独立成组——
+   一词一组等于没聚。
 
 5. **刷新浏览页**（可选，用户想看库时）：
    ```bash
