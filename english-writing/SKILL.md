@@ -240,7 +240,8 @@ python3 "<skill>/scripts/manage_library.py" --print
       "band": "LR",               // 关联哪项评分标准
       "severity": "improve",      // error（错误）| improve（可提升）| good（亮点）
       "comment": "偏口语/笼统，库里有更学术的替换",
-      "suggestion": "beneficial"  // 来自个人库的更好表达（可空）
+      "suggestion": "beneficial", // 来自个人库的更好表达（可空）
+      "category": "冠词 a/an"     // 可选：错误类型标签（汇总页高频清单优先采用，缺省按关键词规则归类）
     }
   ]
 }
@@ -269,6 +270,9 @@ python3 "<skill>/scripts/build_correction_review.py"
   每次删掉上一份再生成，任一时刻只有最新一份）：
   - 分数折线图（Overall / TA / CC / LR / GRA；Chart.js 走 CDN，离线时自动降级，数据以下方表格为准）
   - 高频问题统计：error 批注按雅思评分维度归类（GRA 语法 / LR 词汇 / CC 结构衔接 / TA 任务回应）
+  - 高频错误清单：error 批注再按关键词规则聚成具体错误类型（双空格/冠词/人称漂移/中式直译…），
+    每类折叠（`<details>`），点开看全部实例（篇目 · 第几轮 · 原文 · 批注）；规则固化在
+    build_correction_review.py 的 ERROR_PATTERNS，批注带显式 `category` 字段时优先采用
   - 历次批改记录表格（按时间排序）
 - 可选参数：`--dir` 指定兜底扫描根目录（递归查找，默认覆盖 `corrections/` 子目录及旧的平铺文件）、`--out` 指定输出路径
 
@@ -298,7 +302,7 @@ python3 "<skill>/scripts/build_correction_review.py"
 - `build_library_view.py`：素材库 → `my-library.html` 纯浏览页（library.json 渲染：组/词统计、
   搜索、「⬇ 下载素材库」备份），`--out` 可指定路径。划词汇总入口在阅读页按钮，不在本页。
 - `validate_data.py`：`--kind reader|correction` 生成前校验（批注是否在对应段落、分数是否 0-9）。
-- `build_correction_review.py`：读批改 log（旧 HTML 兜底，`--dir`/`--out` 可选）→ 生成进度汇总（分数折线图 + 按评分维度的问题统计）。
+- `build_correction_review.py`：读批改 log（旧 HTML 兜底，`--dir`/`--out` 可选）→ 生成进度汇总（分数折线图 + 按评分维度的问题统计 + 按错误类型的高频错误清单，每类折叠展开全部实例）。
 
 ## 参考文件
 - `references/english-criteria.md`：雅思写作四项评分标准与常见薄弱点清单（批改时对照）。

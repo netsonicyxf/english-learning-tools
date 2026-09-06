@@ -27,6 +27,16 @@ tr:hover{background:var(--bg)}
 .link{color:var(--accent);text-decoration:none}
 .link:hover{text-decoration:underline}
 .empty{text-align:center;padding:40px;color:var(--muted)}
+.hint{color:var(--muted);font-size:13px;margin-bottom:12px}
+details.ep{border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin:8px 0;background:var(--bg)}
+details.ep summary{cursor:pointer;display:flex;align-items:center;gap:10px;flex-wrap:wrap;list-style:none}
+details.ep summary::-webkit-details-marker{display:none}
+details.ep summary::before{content:"▸";color:var(--muted);transition:transform .15s}
+details.ep[open] summary::before{transform:rotate(90deg)}
+.ep-name{font-weight:600}
+.ep-bar{height:8px;border-radius:4px;background:var(--error);opacity:.7;min-width:4px}
+details.ep table{margin-top:10px}
+.ep-text{font-style:italic;color:#374151}
 </style>
 </head>
 <body>
@@ -50,6 +60,12 @@ tr:hover{background:var(--bg)}
 </div>
 
 <div class="card">
+  <h2>高频错误清单</h2>
+  <p class="hint">按具体错误类型归类全部 error 批注（横条越长越多发）；点开看每一处实例——篇目 · 第几轮 · 原文 · 批注</p>
+  <div id="error-patterns"></div>
+</div>
+
+<div class="card">
   <h2>历次批改</h2>
   <table id="history-table">
     <thead><tr><th>日期</th><th>题目</th><th>Overall</th><th>TA</th><th>CC</th><th>LR</th><th>GRA</th><th>问题</th></tr></thead>
@@ -65,7 +81,7 @@ function init(){
     document.body.innerHTML='<div class="empty">暂无批改记录</div>';return;
   }
   // chart last — a CDN/Chart.js failure must not kill the tables
-  renderStats();renderHistory();renderErrors();renderChart();
+  renderStats();renderHistory();renderErrors();renderPatterns();renderChart();
 }
 function renderStats(){
   const h=DATA.history;const latest=h[h.length-1];const b=latest.band;
@@ -137,6 +153,25 @@ function renderErrors(){
     <td>${g.slugs.map(s=>`<span class="tag tag-improve">${esc(s)}</span>`).join(' ')}</td>
     <td style="max-width:340px">${g.comments.map(c=>`<div style="font-size:12px;color:var(--muted);margin:2px 0">· ${esc(c)}</div>`).join('')}</td>
   </tr>`).join('');
+}
+function renderPatterns(){
+  const box=document.getElementById('error-patterns');
+  if(!DATA.errorPatterns||!DATA.errorPatterns.length){box.closest('.card').style.display='none';return}
+  const max=Math.max.apply(null,DATA.errorPatterns.map(g=>g.count));
+  box.innerHTML=DATA.errorPatterns.map((g,i)=>`
+  <details class="ep"${i===0?' open':''}>
+    <summary><span class="ep-name">${esc(g.category)}</span>
+      <span class="tag tag-error">${g.count} 次</span>
+      <span class="ep-bar" style="width:${Math.round(g.count/max*200)+4}px"></span>
+    </summary>
+    <table><thead><tr><th>篇目</th><th>轮次</th><th>维度</th><th>原文</th><th>批注</th></tr></thead>
+    <tbody>${g.instances.map(x=>`<tr>
+      <td style="max-width:150px">${esc(x.topic)}<div style="font-size:11px;color:var(--muted)">${esc(x.date)}</div></td>
+      <td>R${x.round}</td><td>${esc(x.band)}</td>
+      <td class="ep-text" style="max-width:170px">${esc(x.text)}</td>
+      <td style="max-width:330px;font-size:12.5px">${esc(x.comment)}</td>
+    </tr>`).join('')}</tbody></table>
+  </details>`).join('');
 }
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 init();

@@ -18,9 +18,11 @@ DEFAULT_DIR = Path.home() / "Desktop" / "English Writing"
 DEFAULT_OUT = DEFAULT_DIR / "review-corrections.html"
 LOG_FILE = Path.home() / "Documents" / "english-writing" / "corrections-log.jsonl"
 
-# Errors are grouped by the annotation's IELTS band dimension. Comments are
-# mostly Chinese, so keyword matching on comment text does not work — and the
-# band field (TA/CC/LR/GRA) is exactly the categorisation an IELTS learner wants.
+# Coarse view: errors grouped by the annotation's IELTS band dimension — the
+# band field (TA/CC/LR/GRA) is the coarse categorisation an IELTS learner wants.
+# Fine view (pattern_for / group_error_patterns): keyword rules match comment+text
+# to surface concrete error patterns (双空格、冠词、人称漂移、中式直译…);
+# an explicit `category` field on the annotation always wins over the rules.
 BAND_CATEGORIES = [
     ("GRA", "语法 (GRA)"),
     ("LR", "词汇 (LR)"),
@@ -28,12 +30,36 @@ BAND_CATEGORIES = [
     ("TA", "任务回应 (TA)"),
 ]
 
+# Ordered rules — first match wins; FALLBACK_PATTERN catches the rest.
+ERROR_PATTERNS = [
+    ("双空格/标点", r"空格|标点|逗号"),
+    ("冠词 a/an", r"冠词|a/an|an trainee|a ed-"),
+    ("人称/指代漂移", r"人称|指代"),
+    ("词形/拼写", r"词形|拼写|拼错"),
+    ("中式直译/搭配", r"中式|直译|搭配|地道"),
+    ("词义错位", r"词义错位|想说"),
+    ("时态/单复数", r"时态|单复数|复数|单数"),
+    ("结构/衔接/冗余", r"连接词|衔接|冗余|结构错乱"),
+]
+FALLBACK_PATTERN = "其他（未归类）"
+
 
 def category_for(band):
     for code, name in BAND_CATEGORIES:
         if (band or "").strip().upper() == code:
             return name
     return "其他"
+
+
+def pattern_for(annotation):
+    explicit = (annotation.get("category") or "").strip()
+    if explicit:
+        return explicit
+    hay = (annotation.get("comment") or "") + " " + (annotation.get("text") or "")
+    for name, pat in ERROR_PATTERNS:
+        if re.search(pat, hay):
+            return name
+    return FALLBACK_PATTERN
 
 
 def extract_correction_data(html_text):
@@ -102,6 +128,36 @@ def group_errors(history):
     return sorted(groups.values(), key=lambda g: -g["count"])
 
 
+def group_error_patterns(history):
+    """Group error annotations into concrete patterns with every instance.
+
+    Round numbers are per-topic positions in chronological iteration order,
+    so「R3」= 该题第 3 次批改.
+    """
+    groups, rounds = {}, {}
+    for rec in history:
+        slug = rec.get("slug") or ""
+        rounds[slug] = rounds.get(slug, 0) + 1
+        for a in rec["annotations"]:
+            if a.get("severity") != "error":
+                continue
+            cat = pattern_for(a)
+            g = groups.setdefault(cat, {"category": cat, "count": 0, "instances": []})
+            g["count"] += 1
+            topic = rec.get("topic") or slug
+            g["instances"].append({
+                "round": rounds[slug],
+                "topic": (topic[:24] + "…") if len(topic) > 24 else topic,
+                "date": (rec.get("ts") or "")[:10],
+                "band": a.get("band") or "",
+                "text": a.get("text") or "",
+                "comment": a.get("comment") or "",
+            })
+    # count desc, 其他 pinned last
+    return sorted(groups.values(),
+                  key=lambda g: (g["category"] == FALLBACK_PATTERN, -g["count"]))
+
+
 def build_review(correction_dir=DEFAULT_DIR, output=None):
     correction_dir = Path(correction_dir)
 
@@ -144,6 +200,7 @@ def build_review(correction_dir=DEFAULT_DIR, output=None):
             for r in history
         ],
         "errorGroups": group_errors(history),
+        "errorPatterns": group_error_patterns(history),
         "correctionCount": len(history),
         "generated": datetime.now().strftime("%Y-%m-%d %H:%M"),
     }
@@ -163,6 +220,8 @@ def build_review(correction_dir=DEFAULT_DIR, output=None):
     print(f"\n✓ 汇总页: {output}")
     print(f"  批改记录: {len(history)} 条")
     print(f"  问题分组: {len(review_data['errorGroups'])} 组")
+    print(f"  错误类型: {len(review_data['errorPatterns'])} 类 / "
+          f"{sum(g['count'] for g in review_data['errorPatterns'])} 条 error")
 
 
 if __name__ == "__main__":
