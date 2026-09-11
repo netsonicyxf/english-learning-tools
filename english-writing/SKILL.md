@@ -1,6 +1,6 @@
 ---
 name: "english-writing"
-description: "雅思写作练习系统：两个入口 —— (1) 范文收录：传入一篇雅思范文，或给一个含多篇范文的 pdf/docx/txt/md 文档路径批量解析成一个**单页合集**阅读页（内置目录点击切篇，每篇词典与单词本独立），划词即收进单词本（localStorage，仅存浏览器）；(2) 批改作文：给题目则生成写作页（打开时弹窗自选倒计时时长），或直接粘贴写好的作文，agent 生成按雅思四项评分标准（TA/CC/LR/GRA）的批注式批改 HTML，薄弱处高亮并推荐个人库里的更好替换词，含「重写」按钮循环练习。当用户说 '雅思作文'、'雅思写作'、'范文收录'、'批改作文'、'写作练习'、'IELTS writing'、'帮我改作文'、'生成写作页面'、'收录好词'、'导入素材库'、'解析文档'、'学习这份文档'、'同步词库到写作'、'导入 vocab-drill 词库' 等时触发。"
+description: "雅思写作练习系统：两个入口 —— (1) 范文收录：传入一篇雅思范文，或给一个含多篇范文的 pdf/docx/txt/md 文档路径批量解析成一个**单页合集**阅读页（内置目录点击切篇，每篇词典与单词本独立），划词即收进单词本（localStorage，仅存浏览器）；(2) 批改作文：给题目则生成写作页（打开时弹窗自选倒计时时长），或直接粘贴写好的作文，agent 生成按雅思四项评分标准（TA/CC/LR/GRA）的批注式批改 HTML，薄弱处高亮并推荐个人库里的更好替换词，含「重写」按钮循环练习。当用户说 '雅思作文'、'雅思写作'、'范文收录'、'批改作文'、'写作练习'、'IELTS writing'、'帮我改作文'、'生成写作页面'、'收录好词'、'导入素材库'、'删减素材库'、'应用删除'、'解析文档'、'学习这份文档'、'同步词库到写作'、'导入 vocab-drill 词库' 等时触发。"
 ---
 
 # English Writing Practice
@@ -141,6 +141,12 @@ python3 "<skill>/scripts/build_reader.py" --data-file /tmp/english-<slug>-reader
    **导入成功即删除该导出文件**（路径以实际命中的为准——含尾部空格等变体名）：旧文件不再
    滞留反复触发导入判断，下次点按钮是全新保存，也就不会再撞浏览器「替换」提示或冒出
    「 (1)」/变体名副本。口令触发的强制重扫（下条）同样删。文件不存在 = 无待导入，正常态。
+   会话开始顺手同查**删除清单**（浏览页删除模式导出的，存在即应用）：
+   ```bash
+   ls -t ~/Desktop/English\ Writing/writing-library-deletions.json ~/Downloads/writing-library-deletions.json 2>/dev/null | head -1
+   ```
+   命中即静默跑 `apply_library_deletions.py`（自动找同两处最新文件：备份 → 删组删词 →
+   刷新 my-library.html → 删清单），完成后向用户提一句结果。
 1. 口令「导入素材库」仍然有效：用户说了就立即执行同一流程（不看 state，强制重扫）。
 2. 完全找不到导出文件时才提示用户：打开任意阅读页点「导入素材库」，保存进
    `~/Desktop/English Writing/`。这一 click 无法省略：浏览器沙箱不允许页面悄悄写磁盘，agent 也读不到
@@ -184,6 +190,15 @@ python3 "<skill>/scripts/build_reader.py" --data-file /tmp/english-<slug>-reader
    python3 "<skill>/scripts/build_library_view.py"
    ```
    阅读页顶栏「素材库」按钮打开的就是这个页面（同目录下的 `my-library.html`）。
+
+6. **删减素材库（浏览页删除模式）**：`my-library.html` 顶栏「🗑 删除模式」进入——词条打 ✕、
+   组头「🗑 删整组」，再点一次撤销，标记只在当前页面内存里（刷新即清）。标完点
+   「⬇ 导出删除清单」下载 `writing-library-deletions.json`（固定名，存 English Writing，
+   提示「替换」时选替换）。应用走 `apply_library_deletions.py`（会话开始自动查，见上；
+   口令「应用删除」「删减素材库」立即执行）：
+   - 整组：组名归一化精确匹配，整组删除；
+   - 词条：先在清单指定的组内找；组名对不上时全库唯一同名词条兜底；组在而词不在 → 跳过并报告；
+   - 删空的组自动清掉；库先备份成 `library.json.bak`（保留一代）；应用后自动刷新浏览页并删清单。
 
 ### 从 vocab-drill 一键导入词库（跨 skill 桥接）
 
@@ -302,8 +317,11 @@ python3 "<skill>/scripts/build_correction_review.py"
 - `manage_library.py`：`--print` 读库（批改前取建议）｜`--data-file` 入库｜`--init` 建空库。
 - `extract_dictionary.py`：从 `essays/` 的阅读页/合集页抽内嵌词典（「入库」的词源，无需用户粘贴）。
 - `import_vocab_drill.py`：vocab-drill 词库 → 个人库一键导入（只读 state，`--dry-run` 预览，重复执行安全）。
-- `build_library_view.py`：素材库 → `my-library.html` 纯浏览页（library.json 渲染：组/词统计、
-  搜索、「⬇ 下载素材库」备份），`--out` 可指定路径。划词汇总入口在阅读页按钮，不在本页。
+- `build_library_view.py`：素材库 → `my-library.html` 浏览页（library.json 渲染：组/词统计、
+  搜索、「⬇ 下载素材库」备份、删除模式标记与清单导出），`--out` 可指定路径。划词汇总入口在阅读页按钮，不在本页。
+- `apply_library_deletions.py`：应用浏览页删除模式导出的 `writing-library-deletions.json`
+  （缺省自动搜 English Writing / Downloads 两处取最新）：备份 `library.json.bak` → 删整组/删词条
+  → 清空组 → 刷新 my-library.html → 删清单；`--file` 指定路径，`--dry-run` 预览不动盘。
 - `validate_data.py`：`--kind reader|correction` 生成前校验（批注是否在对应段落、分数是否 0-9）。
 - `build_correction_review.py`：读批改 log（旧 HTML 兜底，`--dir`/`--out` 可选）→ 生成进度汇总（分数折线图 + 按评分维度的问题统计 + 按错误类型的高频错误清单，每类折叠展开全部实例）。
 
