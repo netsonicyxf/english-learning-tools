@@ -9,6 +9,43 @@ BANDS = ("overall", "ta", "cc", "lr", "gra")
 PARA_SPLIT = re.compile(r"\n\s*\n")
 
 
+def _overlap(a, b):
+    return a[0] < b[1] and b[0] < a[1]
+
+
+def check_marks(paras, annos):
+    """Replay the template's buildMarks(): within a paragraph, longer text wins
+    the span and any annotation fully covered by it is silently dropped — the
+    page renders no highlight and files it under 未定位. Report those here."""
+    errs = []
+    for pi, para in enumerate(paras):
+        low = para.lower()
+        target = [(i, a) for i, a in enumerate(annos) if a.get("paragraph") == pi]
+        marks = []
+        for i, a in sorted(target, key=lambda x: -len(x[1].get("text") or "")):
+            t = (a.get("text") or "").lower()
+            if not t:
+                continue
+            idx, placed, guard = low.find(t), False, 0
+            while idx != -1 and guard < 50:
+                guard += 1
+                cand = (idx, idx + len(t))
+                if not any(_overlap(m[:2], cand) for m in marks):
+                    marks.append((cand[0], cand[1], i))
+                    placed = True
+                    break
+                idx = low.find(t, idx + len(t))
+            if not placed:
+                first = low.find(t)
+                blockers = [m[2] for m in marks
+                            if _overlap(m[:2], (first, first + len(t)))]
+                errs.append(
+                    f"批注#{i} 会渲染成「未定位」：片段被批注#{blockers} 的更长片段整段覆盖"
+                    f"，页面无处高亮 — 换一个不重叠的片段: {a.get('text')[:40]}"
+                )
+    return errs
+
+
 def validate_reader(d):
     errs = []
     for k in ("id", "title", "content"):
@@ -54,6 +91,9 @@ def validate_correction(d):
         v = band.get(k)
         if v is not None and not (0 <= float(v) <= 9):
             errs.append(f"band.{k}={v} 超出 0-9")
+    # only worth replaying the marks when every text already sits in its paragraph
+    if not errs:
+        errs += check_marks(paras, d.get("annotations", []))
     return errs
 
 

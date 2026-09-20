@@ -266,6 +266,8 @@ python3 "<skill>/scripts/manage_library.py" --print
 ```
 `text` 必须是作文里**逐字存在**的片段，模板靠它在正文里高亮定位。`suggestion` 优先取自个人库里语义相近的 term；命中时该批注会高亮成「库推荐」样式。
 
+**同段内批注的片段不能相互包含**：模板定位时长片段先占位（`buildMarks()` 按 text 长度降序），被更长片段整段覆盖的短批注拿不到位置，页面上既没有高亮、也会被归到「未定位」栏里。想同时点评一个长句和它内部的某个词，就让长句批注只取该词之外的部分（如整句改引其后半句），或把两条合成一条。`validate_data.py` 会重放这个占位规则并报错，别只靠肉眼检查。
+
 ### Step 3：生成批改页（build_correction.py）
 先写 `/tmp/english-<slug>-correction.json`（**必须用 `--data-file`**：作文里的撇号会截断 shell 单引号），校验后生成：
 ```bash
@@ -305,7 +307,7 @@ python3 "<skill>/scripts/build_correction_review.py"
 - **库推荐一致性**：`suggestion` 写进库里真实存在的 term；若库里没有合适项就留空，不要编造库中不存在的词。
   模板会给带 `suggestion` 的批注挂「★ 来自你的库」标签，编造的词会让这个标签失真。
 - **词典质量**：范文词典宁多勿漏，覆盖学习者可能想积累的搭配与词组。
-- **校验**：组装完批改/阅读 JSON 后，用 `scripts/validate_data.py` 跑一遍基本校验（批注 text 在 essay 中、分数范围合理），不通过则修正后重生成。
+- **校验**：组装完批改/阅读 JSON 后，用 `scripts/validate_data.py` 跑一遍基本校验（批注 text 在 essay 中、分数范围合理、同段批注片段不相互覆盖），不通过则修正后重生成。
 
 ## 脚本一览
 - `build_reader.py`：范文 → 阅读页（入口 1）。顺带在同目录刷新 `my-library.html`（每次随建随刷，避免过期）。
@@ -322,7 +324,7 @@ python3 "<skill>/scripts/build_correction_review.py"
 - `apply_library_deletions.py`：应用浏览页删除模式导出的 `writing-library-deletions.json`
   （缺省自动搜 English Writing / Downloads 两处取最新）：备份 `library.json.bak` → 删整组/删词条
   → 清空组 → 刷新 my-library.html → 删清单；`--file` 指定路径，`--dry-run` 预览不动盘。
-- `validate_data.py`：`--kind reader|correction` 生成前校验（批注是否在对应段落、分数是否 0-9）。
+- `validate_data.py`：`--kind reader|correction` 生成前校验（批注是否在对应段落、分数是否 0-9、同段批注片段是否被更长片段整段覆盖而渲染成「未定位」）。
 - `build_correction_review.py`：读批改 log（旧 HTML 兜底，`--dir`/`--out` 可选）→ 生成进度汇总（分数折线图 + 按评分维度的问题统计 + 按错误类型的高频错误清单，每类折叠展开全部实例）。
 
 ## 参考文件
