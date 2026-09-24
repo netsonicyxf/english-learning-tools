@@ -23,6 +23,35 @@ read_when:
 - 无需任何 API Key；划词翻译离线优先（内嵌词典），联网时走 MyMemory → Google 免费接口
 - 录音跟读需浏览器麦克风权限（Chrome 对 file:// 页面会正常弹窗）
 
+## 新用户环境准备（首次使用先自检）
+
+**依赖随路径递增**，用到哪条装哪条：
+
+| 路径 | 需要安装 |
+|---|---|
+| A 媒体 + 字幕文件 | 仅 Python 3（系统自带即可） |
+| B 视频直链 `--url` | A + `yt-dlp`、`ffmpeg` |
+| C Whisper 转录 `--transcribe` | B + `faster-whisper`（pip） |
+| D TTS 合成场景对话 | 仅 macOS 系统自带（`say` / `afconvert`），零安装 |
+
+一条命令自检 + 按需安装（macOS / Homebrew）：
+
+```bash
+# 自检：逐项打印 ok / 缺失
+which ffmpeg yt-dlp; python3 -c "import faster_whisper; print('whisper ok')" 2>/dev/null || echo "faster-whisper 缺失"
+
+# 缺什么装什么
+brew install ffmpeg yt-dlp          # 路径 B/C 需要
+python3 -m pip install faster-whisper   # 路径 C 需要（装进将运行构建脚本的那个 python3）
+```
+
+**坑位提示**：
+- `faster-whisper` 必须装进**运行 `build_shadowing.py` 的那个 python3**。若机器上有多个 python
+  （如 brew python 与系统 python 并存），用 `python3 -m pip` 而不是裸 `pip3`，避免装错解释器。
+- Whisper 模型**无需手动下载**：首次转录自动经 hf-mirror 拉取（small 约 460MB，之后走本地缓存）。
+  国内网络无需配置，脚本内置镜像；海外网络也兼容。
+- Linux 用户的 `say/afconvert`（路径 D）没有等价物，跳过该路径即可，其余路径不受影响。
+
 ## 建课前必做：估时长 → 按需询问拆期
 
 拿到素材**先查时长**再动手：
