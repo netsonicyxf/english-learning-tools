@@ -23,7 +23,9 @@ read_when:
 - 无需任何 API Key；划词翻译离线优先（内嵌词典），联网时走 MyMemory → Google 免费接口
 - 录音跟读需浏览器麦克风权限（Chrome 对 file:// 页面会正常弹窗）
 
-## 新用户环境准备（首次使用先自检）
+## 新用户环境准备（首次使用，agent 代跑）
+
+用户全程自然语言提需求，**下面的自检与安装命令一律由 agent 自己执行**，不要把命令甩给用户跑。
 
 **依赖随路径递增**，用到哪条装哪条：
 
@@ -34,7 +36,7 @@ read_when:
 | C Whisper 转录 `--transcribe` | B + `faster-whisper`（pip） |
 | D TTS 合成场景对话 | 仅 macOS 系统自带（`say` / `afconvert`），零安装 |
 
-一条命令自检 + 按需安装（macOS / Homebrew）：
+agent 自检 + 缺啥装啥（macOS / Homebrew）：
 
 ```bash
 # 自检：逐项打印 ok / 缺失
